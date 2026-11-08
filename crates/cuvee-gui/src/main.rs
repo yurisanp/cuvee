@@ -523,7 +523,10 @@ impl App {
 
     fn subscription(&self) -> Subscription<Message> {
         let mut subs = vec![iced::time::every(Duration::from_secs(5)).map(|_| Message::Refresh)];
-        // Redraw at 60 Hz while something moves: entrances, the breathing dot, the bubbles.
+        // While something moves (entrances, the breathing dot, the bubbles) tick once per
+        // frame the compositor presents. A fixed 16 ms timer gave 60 updates a second that
+        // drift against a 144 or 165 Hz display, so motion judders as if it were drawn
+        // in software. `window::frames` follows the display's own refresh instead.
         let animating = !self.settings.reduce_motion
             && (matches!(
                 self.screen,
@@ -535,7 +538,7 @@ impl App {
                 12,
             ) || self.notice.is_some());
         if animating {
-            subs.push(iced::time::every(Duration::from_millis(16)).map(Message::Tick));
+            subs.push(iced::window::frames().map(Message::Tick));
         } else {
             subs.push(iced::time::every(Duration::from_millis(250)).map(Message::Tick));
         }
