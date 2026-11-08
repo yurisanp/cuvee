@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: |
+          shellcheck bin/cuvee
+          # makepkg runs PKGBUILDs with errexit and sets their variables itself.
+          shellcheck -s bash -e SC2034,SC2154,SC2164 \
+            packaging/*/PKGBUILD packaging/cuvee-git/cuvee.install
+
+  package:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    timeout-minutes: 180
+    steps:
+      - name: Install build tools
+        run: pacman -Syu --noconfirm --needed base-devel git namcap sudo
+      - uses: actions/checkout@v4
+      - name: Builder user
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+          chown -R builder: "$GITHUB_WORKSPACE"
+      - name: namcap (PKGBUILDs)
+        run: namcap packaging/*/PKGBUILD
+      - name: Build reims-vgpu-git
+        working-directory: packaging/reims-vgpu-git
+        run: sudo -u builder makepkg --syncdeps --noconfirm --cleanbuild
+      - name: Install reims-vgpu-git
+        working-directory: packaging/reims-vgpu-git
+        run: pacman -U --noconfirm reims-vgpu-git-*.pkg.tar.zst
+      - name: Build cuvee-git from this checkout
+        working-directory: packaging/cuvee-git
+        run: |
+          sed -i "s|^source=.*|source=(\"cuvee::git+file://$GITHUB_WORKSPACE#commit=$GITHUB_SHA\")|" PKGBUILD
+          git config --global --add safe.directory '*'
+          sudo -u builder git config --global --add safe.directory '*'
+          sudo -u builder makepkg --noconfirm --cleanbuild
+          pacman -U --noconfirm cuvee-git-*.pkg.tar.zst
+      - name: Smoke test
+        run: |
+          cuvee --version
+          cuvee --help
+          test -x /usr/lib/cuvee/qemu/bin/qemu-system-x86_64
+          /usr/lib/cuvee/qemu/bin/qemu-system-x86_64 --version
+          reims-ctl help >/dev/null
+          reims-util --version
+          namcap packaging/*/*.pkg.tar.zst || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: packaging/*/*.pkg.tar.zst
