@@ -2,3 +2,8 @@
 /packaging/*/src
 /packaging/*/pkg
 /packaging/*/*.pkg.tar.*
+# Clones makepkg keeps next to each PKGBUILD for its git sources.
+/packaging/reims-vgpu-git/reims-vgpu
+/packaging/reims-vgpu-git/qemu-reims-vgpu
+/packaging/reims-vgpu-git/reims-util
+/packaging/cuvee-git/cuvee
