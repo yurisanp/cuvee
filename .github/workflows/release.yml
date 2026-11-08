@@ -69,5 +69,8 @@ jobs:
             else
               gh release create "$GITHUB_REF_NAME" --title "Cuvée $GITHUB_REF_NAME" --generate-notes
             fi
+          elif [[ -f $notes ]]; then
+            # Release created on github.com (which also creates the tag): use our notes.
+            gh release edit "$GITHUB_REF_NAME" --title "Cuvée $GITHUB_REF_NAME" --notes-file "$notes"
           fi
           gh release upload "$GITHUB_REF_NAME" dist/* --clobber
