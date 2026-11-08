@@ -6,20 +6,14 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
 
 ## Agora
 
-- [ ] Soltar a v0.2.0 (o PR #5 já está no main; as notas estão em
-  `.github/release-notes/v0.2.0.md`):
+- [ ] Soltar a v0.9.0, a versão de teste com tudo até aqui (no lugar das tags
+  v0.2.0 e v0.3.0; notas em `.github/release-notes/v0.9.0.md`):
   ```sh
   cd /mnt/dados/Desenvolvimento/Linux/cuvee
-  git fetch origin main && git tag -a v0.2.0 -m "Cuvée v0.2.0" ee62d17
-  git push origin v0.2.0
+  git fetch origin main && git tag -a v0.9.0 -m "Cuvée v0.9.0" origin/main
+  git push origin v0.9.0
   ```
   A release sai assinada: cada arquivo ganha um `.minisig` ao lado.
-- [ ] Depois que a release v0.2.0 aparecer, soltar a v0.3.0 (pacotes .deb/.rpm,
-  site de docs e `cuvee report`; a release passa a trazer os `.deb` e `.rpm` do
-  `cuvee` e do `cuvee-runtime`; notas em `.github/release-notes/v0.3.0.md`):
-  ```sh
-  git tag -a v0.3.0 -m "Cuvée v0.3.0" 3d87580 && git push origin v0.3.0
-  ```
 - [ ] Apagar as pastas de teste da v0.2:
   `rm -rf /mnt/dados/Desenvolvimento/Linux/cuvee-v02-teste /tmp/cuvee-home.dpZZ`
 - [ ] Apagar a cópia de teste da v0.3: `rm -rf ~/.cache/cuvee-v03`
