@@ -74,6 +74,26 @@ Prefere não rodar um script da internet? Baixe `cuvee-x86_64-linux-musl` e
 confira com `sha256sum -c --ignore-missing SHA256SUMS` e rode
 `./cuvee-x86_64-linux-musl install`.
 
+### Pacotes .deb e .rpm
+
+Para quem prefere o gerenciador da distro. Cada release traz dois pacotes:
+`cuvee` (o comando, o app e a preparação do host) e `cuvee-runtime` (o QEMU
+da Reims vGPU em `/usr/lib/cuvee/qemu`, o `reims-ctl` e o `reims-util`).
+
+```sh
+# Ubuntu 22.04+ e Debian 12/13
+curl -fLO https://github.com/yurisanp/cuvee/releases/latest/download/cuvee-runtime_amd64.deb
+curl -fLO https://github.com/yurisanp/cuvee/releases/latest/download/cuvee_amd64.deb
+sudo apt install ./cuvee-runtime_amd64.deb ./cuvee_amd64.deb
+
+# Fedora (no openSUSE: sudo zypper install --allow-unsigned-rpm ...)
+curl -fLO https://github.com/yurisanp/cuvee/releases/latest/download/cuvee-runtime.x86_64.rpm
+curl -fLO https://github.com/yurisanp/cuvee/releases/latest/download/cuvee.x86_64.rpm
+sudo dnf install ./cuvee-runtime.x86_64.rpm ./cuvee.x86_64.rpm
+```
+
+Depois, `cuvee setup-host`, sair e entrar na sessão e `cuvee doctor`.
+
 ### Arch Linux, pelos PKGBUILDs
 
 Ainda não está no AUR. A partir deste repositório:
@@ -116,6 +136,13 @@ O instalador já o põe no menu de aplicativos. Para rodar a partir do código:
 `cargo run --release -p cuvee-gui`. Os ajustes ficam em
 `~/.config/cuvee/settings.toml`.
 
+## Documentação e bugs
+
+Guia completo em português e inglês: <https://yurisanp.github.io/cuvee/>
+(instalação por distro, primeira VM, problemas comuns). Achou um bug? Rode
+`cuvee report NOME_DA_VM` e anexe os arquivos que ele gera a uma
+[issue](https://github.com/yurisanp/cuvee/issues/new).
+
 ## Estrutura
 
 | Caminho | O que é |
@@ -130,6 +157,8 @@ O instalador já o põe no menu de aplicativos. Para rodar a partir do código:
 | `host/` | regra udev e módulo carregado no boot (udmabuf) |
 | `packaging/reims-vgpu-git` | PKGBUILD do reims-vgpu, QEMU, reims-ctl e reims-util |
 | `packaging/cuvee-git` | PKGBUILD do Cuvée |
+| `packaging/native` | pacotes `.deb` e `.rpm` (nfpm) e o teste de instalação em 7 distros |
+| `docs/pt-BR`, `docs/en` | o site de documentação (mdBook) |
 
 O QEMU da Reims vGPU fica em `~/.local/share/cuvee/runtime` (instalador) ou em
 `/usr/lib/cuvee/qemu` (pacotes), separado do QEMU da distro.

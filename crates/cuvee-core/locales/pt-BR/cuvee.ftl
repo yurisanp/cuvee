@@ -95,6 +95,8 @@ diag-rerun = Verificar de novo
 diag-sudo-note = O comando pede sua senha de administrador.
 diag-ok = ok
 diag-needs-fix = precisa de ajuste
+diag-report = Gerar relatório para relatar um bug
+diag-report-saved = Relatório salvo em { $path }. Anexe-o à issue no GitHub.
 
 check-cpu-virt = Virtualização na CPU
 check-kvm = Acesso ao /dev/kvm
@@ -203,6 +205,8 @@ cli-doctor-fix = corrige com: { $command }
 cli-doctor-reims = Diagnóstico do reims-ctl
 cli-gpus = GPUs: { $list }
 cli-distro = Distribuição: { $name }
+cli-report-saved = Relatório salvo em { $path }
+cli-report-next = Abra o arquivo, confira e anexe-o a uma issue: https://github.com/yurisanp/cuvee/issues/new
 cli-distro-unknown = Não sei instalar pacotes em { $name }. Instale à mão o equivalente destes pacotes do Ubuntu e rode cuvee install --skip-deps: { $list }
 cli-packaged = O Cuvée deste sistema veio de um pacote ({ $kind }). Atualize e instale pelo gerenciador de pacotes da sua distro.
 cli-deps-ok = Dependências já instaladas.

@@ -4,6 +4,7 @@
 //! - [`macos`]: the catalog of macOS versions a VM can run, with what to expect from each.
 //! - [`vm`]: the VMs reims-ctl knows, read through `reims-ctl list --json`.
 //! - [`i18n`]: Fluent translations; every user-facing string goes through [`i18n::Locale`].
+//! - [`report`]: the text file `cuvee report` writes for bug reports.
 //! - [`paths`]: where QEMU, reims-ctl and reims-util are (system or user install).
 //! - [`distro`]: the distribution, its package manager and the packages the runtime needs.
 //! - [`release`]: downloading and checking a release's files from GitHub.
@@ -20,6 +21,7 @@ pub mod macos;
 pub mod passthrough;
 pub mod paths;
 pub mod release;
+pub mod report;
 pub mod settings;
 pub mod signature;
 pub mod vm;

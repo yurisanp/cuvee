@@ -130,6 +130,8 @@ pub enum Message {
     DiagFix,
     DiagFixed(Result<(), String>),
     DiagToggleCmd,
+    DiagReport,
+    DiagReported(Result<String, String>),
     // Comportamento
     PickGroup(Group),
     // Ajustes
@@ -397,6 +399,26 @@ impl App {
             },
             Message::DiagToggleCmd => {
                 self.diag_show_cmd = !self.diag_show_cmd;
+                Task::none()
+            }
+            Message::DiagReport => Task::perform(
+                run_blocking(|| {
+                    cuvee_core::report::write(None)
+                        .map(|p| p.display().to_string())
+                        .map_err(|e| format!("{e:#}"))
+                }),
+                Message::DiagReported,
+            ),
+            Message::DiagReported(result) => {
+                let msg = match result {
+                    Ok(path) => self
+                        .locale
+                        .t_args("diag-report-saved", &[("path", Locale::str(&path))]),
+                    Err(e) => self
+                        .locale
+                        .t_args("err-generic", &[("error", Locale::str(&e))]),
+                };
+                self.notify(msg);
                 Task::none()
             }
 

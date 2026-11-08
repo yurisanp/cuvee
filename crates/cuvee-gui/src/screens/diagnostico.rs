@@ -163,7 +163,17 @@ pub fn view(app: &App) -> Element<'_, Message> {
     ]
     .spacing(40);
 
-    column![top, widgets::hairline(), container(checks).padding([28, 0])]
-        .spacing(28)
-        .into()
+    let report_button = button(theme::label(app.t("diag-report"), 14.0, theme::MUTED))
+        .padding([0, 2])
+        .style(theme::ghost)
+        .on_press(Message::DiagReport);
+
+    column![
+        top,
+        widgets::hairline(),
+        container(checks).padding([28, 0]),
+        report_button
+    ]
+    .spacing(28)
+    .into()
 }

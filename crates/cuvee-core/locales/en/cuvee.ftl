@@ -95,6 +95,8 @@ diag-rerun = Check again
 diag-sudo-note = The command asks for your administrator password.
 diag-ok = ok
 diag-needs-fix = needs a fix
+diag-report = Make a bug report
+diag-report-saved = Report saved to { $path }. Attach it to the GitHub issue.
 
 check-cpu-virt = CPU virtualization
 check-kvm = Access to /dev/kvm
@@ -203,6 +205,8 @@ cli-doctor-fix = fix with: { $command }
 cli-doctor-reims = reims-ctl's own check
 cli-gpus = GPUs: { $list }
 cli-distro = Distribution: { $name }
+cli-report-saved = Report saved to { $path }
+cli-report-next = Open the file, check it and attach it to an issue: https://github.com/yurisanp/cuvee/issues/new
 cli-distro-unknown = I don't know how to install packages on { $name }. Install the equivalents of these Ubuntu packages yourself, then run cuvee install --skip-deps: { $list }
 cli-packaged = Cuvée on this system came from a package ({ $kind }). Update and install it with your distribution's package manager.
 cli-deps-ok = Dependencies already installed.

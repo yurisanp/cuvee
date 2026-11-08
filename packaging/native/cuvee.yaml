@@ -1,0 +1,50 @@
+# nfpm config for the `cuvee` package: the cuvee command, the app and the host setup.
+# build.sh expands the ${...} variables and appends the dependencies it computes.
+name: cuvee
+arch: amd64
+platform: linux
+version: ${CUVEE_VERSION}
+release: ${CUVEE_RELEASE}
+section: otherosfs
+priority: optional
+maintainer: Yuri <62726473+yurisanp@users.noreply.github.com>
+vendor: Cuvée
+homepage: https://github.com/yurisanp/cuvee
+license: GPL-3.0-or-later
+description: |-
+  macOS virtual machines on Linux, with graphics acceleration
+  Cuvée runs macOS VMs on QEMU/KVM with the Reims vGPU virtual GPU: the
+  cuvee command, the Cuvée desktop app, and the host setup (udmabuf module
+  and udev rule). It drives reims-ctl, which comes in cuvee-runtime.
+
+contents:
+  - dst: /usr/share/licenses/cuvee
+    type: dir
+    packager: rpm
+  - src: ${STAGE}/cuvee
+    dst: /usr/bin/cuvee
+    file_info: {mode: 0755}
+  - src: ${STAGE}/cuvee-gui
+    dst: /usr/bin/cuvee-gui
+    file_info: {mode: 0755}
+  - src: ${REPO}/host/70-cuvee-udmabuf.rules
+    dst: /usr/lib/udev/rules.d/70-cuvee-udmabuf.rules
+  - src: ${REPO}/host/cuvee.conf
+    dst: /usr/lib/modules-load.d/cuvee.conf
+  - src: ${REPO}/packaging/native/cuvee-gui.desktop
+    dst: /usr/share/applications/cuvee-gui.desktop
+  - src: ${REPO}/packaging/native/packaged-deb
+    dst: /usr/lib/cuvee/packaged
+    packager: deb
+  - src: ${REPO}/packaging/native/packaged-rpm
+    dst: /usr/lib/cuvee/packaged
+    packager: rpm
+  - src: ${REPO}/LICENSE
+    dst: /usr/share/licenses/cuvee/LICENSE
+  - src: ${REPO}/packaging/native/copyright
+    dst: /usr/share/doc/cuvee/copyright
+    packager: deb
+
+scripts:
+  postinstall: ${REPO}/packaging/native/scripts/postinstall.sh
+  postremove: ${REPO}/packaging/native/scripts/postremove.sh

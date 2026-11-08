@@ -16,6 +16,8 @@ on:
       - crates/cuvee-core/src/release.rs
       - .github/workflows/build.yml
       - .github/workflows/installer.yml
+      - packaging/native/**
+      - .github/workflows/native-packages.yml
   schedule:
     - cron: "17 6 * * 1"
   workflow_dispatch:
@@ -29,3 +31,10 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       reims_vgpu_rev: ${{ github.event_name == 'schedule' && 'master' || inputs.reims_vgpu_rev || '' }}
+
+  # The same binaries as .deb and .rpm, installed on seven distros.
+  native:
+    needs: build
+    uses: ./.github/workflows/native-packages.yml
+    with:
+      version: "0.0.0"

@@ -42,6 +42,8 @@ enum Command {
     Uninstall(cmd::install::UninstallArgs),
     /// GPU passthrough (VFIO) for macOS 10.13 to 15: list, check, setup-host, attach, detach
     Passthrough(cmd::passthrough::Args),
+    /// Writes a bug report (host, GPUs, versions, checks; a VM's logs with its name) to Downloads
+    Report(cmd::report::Args),
     /// Lists every reims-ctl command
     HelpReims {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -61,6 +63,7 @@ fn main() -> ExitCode {
         Some(Command::Update(a)) => cmd::install::update(a),
         Some(Command::Uninstall(a)) => cmd::install::uninstall(a),
         Some(Command::Passthrough(a)) => cmd::passthrough::run(a),
+        Some(Command::Report(a)) => cmd::report::run(a),
         Some(Command::HelpReims { args }) => {
             let mut v = vec![OsString::from("help")];
             v.extend(args);

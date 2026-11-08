@@ -11,8 +11,14 @@ jobs:
   build:
     uses: ./.github/workflows/build.yml
 
-  publish:
+  native:
     needs: build
+    uses: ./.github/workflows/native-packages.yml
+    with:
+      version: ${{ github.ref_name }}
+
+  publish:
+    needs: [build, native]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +26,12 @@ jobs:
         with:
           name: dist
           path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-packages
+          path: dist
+      - name: Checksums with the packages
+        run: cd dist && rm -f SHA256SUMS && sha256sum -- * > SHA256SUMS && cat SHA256SUMS
       - name: Sign
         # Assina cada arquivo com minisign quando a chave existe (ver PENDENCIAS.md).
         env:
