@@ -8,6 +8,7 @@
 //! - [`distro`]: the distribution, its package manager and the packages the runtime needs.
 //! - [`release`]: downloading and checking a release's files from GitHub.
 //! - [`signature`]: where release signatures are checked.
+//! - [`passthrough`]: GPU passthrough (VFIO) for macOS 10.13 to 15: GPUs, IOMMU, host setup.
 //! - [`settings`]: the app's own settings (language, reduced motion) in the XDG config dir.
 //!
 //! SPDX-License-Identifier: GPL-3.0-or-later
@@ -16,6 +17,7 @@ pub mod distro;
 pub mod host;
 pub mod i18n;
 pub mod macos;
+pub mod passthrough;
 pub mod paths;
 pub mod release;
 pub mod settings;

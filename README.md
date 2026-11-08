@@ -17,12 +17,22 @@ que não é dele.
 | | Situação |
 |---|---|
 | macOS 26 Tahoe | com aceleração gráfica (Metal) |
-| macOS 10.13 a 15 | instala e liga, mas **sem aceleração** (a tela fica lenta) |
+| macOS 10.13 a 15 | instala e liga **sem aceleração**; com uma segunda GPU passada para a VM, roda com Metal ([GPU passthrough](docs/passthrough.md), beta) |
 | GPUs do host | AMD (RADV), Intel (ANV) e NVIDIA, por Vulkan |
 | Sessão | Wayland e X11 |
 
-Acelerar o macOS 10.13 a 15 com uma GPU física passada para a VM (VFIO) está
-nos planos.
+Para acelerar o macOS 10.13 a 15, passe uma GPU física para a VM (VFIO):
+precisa de uma segunda GPU, de preferência uma AMD Polaris (RX 570/580). O
+passo a passo está em [docs/passthrough.md](docs/passthrough.md):
+
+```sh
+cuvee passthrough list --macos sequoia   # quais GPUs servem e o que falta
+cuvee passthrough setup-host 0c:00       # vfio-pci, udev e limites (sudo)
+cuvee passthrough attach mac15 0c:00     # a VM usa a GPU no próximo boot
+```
+
+O subcomando `cuvee passthrough` entra no `cuvee` junto com o CLI em Rust da
+v0.2; no aplicativo, a escolha da GPU já está no passo Hardware.
 
 ## Instalação
 
@@ -115,6 +125,8 @@ O instalador já o põe no menu de aplicativos. Para rodar a partir do código:
 | `packaging/runtime` | compila o QEMU, o reims-ctl e o reims-util das releases |
 | `crates/cuvee-core` | núcleo: diagnóstico, catálogo de macOS, VMs, traduções |
 | `crates/cuvee-gui` | o aplicativo |
+| `crates/cuvee-cli/src/cmd/passthrough.rs` | o subcomando `cuvee passthrough` |
+| `docs/passthrough.md` | GPU passthrough: GPUs que servem e passo a passo |
 | `host/` | regra udev e módulo carregado no boot (udmabuf) |
 | `packaging/reims-vgpu-git` | PKGBUILD do reims-vgpu, QEMU, reims-ctl e reims-util |
 | `packaging/cuvee-git` | PKGBUILD do Cuvée |

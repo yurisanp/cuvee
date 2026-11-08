@@ -40,6 +40,8 @@ enum Command {
     Update(cmd::install::UpdateArgs),
     /// Removes what cuvee install put in your home directory (VMs stay)
     Uninstall(cmd::install::UninstallArgs),
+    /// GPU passthrough (VFIO) for macOS 10.13 to 15: list, check, setup-host, attach, detach
+    Passthrough(cmd::passthrough::Args),
     /// Lists every reims-ctl command
     HelpReims {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -58,6 +60,7 @@ fn main() -> ExitCode {
         Some(Command::Install(a)) => cmd::install::run(a),
         Some(Command::Update(a)) => cmd::install::update(a),
         Some(Command::Uninstall(a)) => cmd::install::uninstall(a),
+        Some(Command::Passthrough(a)) => cmd::passthrough::run(a),
         Some(Command::HelpReims { args }) => {
             let mut v = vec![OsString::from("help")];
             v.extend(args);
