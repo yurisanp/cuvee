@@ -10,10 +10,15 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
   `.github/release-notes/v0.2.0.md`):
   ```sh
   cd /mnt/dados/Desenvolvimento/Linux/cuvee
-  git fetch origin main && git tag -a v0.2.0 -m "Cuvée v0.2.0" origin/main
+  git fetch origin main && git tag -a v0.2.0 -m "Cuvée v0.2.0" ee62d17
   git push origin v0.2.0
   ```
   A release sai assinada: cada arquivo ganha um `.minisig` ao lado.
+- [ ] Depois que a release v0.2.0 aparecer, soltar a v0.3.0 (pacotes .deb/.rpm,
+  site de docs e `cuvee report`; notas em `.github/release-notes/v0.3.0.md`):
+  ```sh
+  git tag -a v0.3.0 -m "Cuvée v0.3.0" 3d87580 && git push origin v0.3.0
+  ```
 - [ ] Apagar as pastas de teste da v0.2:
   `rm -rf /mnt/dados/Desenvolvimento/Linux/cuvee-v02-teste /tmp/cuvee-home.dpZZ`
 
