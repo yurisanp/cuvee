@@ -212,19 +212,19 @@ group-ventura-sequoia = macOS 13 to 15
 group-big-sur-monterey = macOS 11 and 12
 group-high-sierra-catalina = macOS 10.13 to 10.15
 
-aspect-video-no-gpu = Video without an extra GPU
-aspect-amd-passthrough = Dedicated AMD GPU
-aspect-nvidia-passthrough = Dedicated NVIDIA GPU
+aspect-video-no-gpu = Video via the PC's GPU
+aspect-amd-passthrough = 2nd AMD GPU in the VM
+aspect-nvidia-passthrough = 2nd NVIDIA GPU in the VM
 aspect-network = Network
 aspect-apple-services = Apple services
 
-beh-tahoe-video = Accelerated, with Metal
+beh-tahoe-video = Accelerated with Metal (AMD, Intel or NVIDIA)
 beh-tahoe-amd = Possible, but unnecessary
 beh-video-usable = Usable, no Metal
 beh-video-slow = Slow, no Metal
 beh-amd-native-wide = Native (RX 400 to 6000, almost all)
 beh-amd-polaris-vega = Polaris and Vega native
-beh-nvidia-no-driver = No driver
+beh-nvidia-no-driver = No: macOS has no NVIDIA driver
 beh-nvidia-kepler = Kepler only (GTX 600 and 700)
 beh-nvidia-kepler-pascal = Kepler; Maxwell and Pascal only on 10.13
 beh-network-ok = Works
