@@ -417,20 +417,27 @@ fn step_review(app: &App) -> Element<'_, Message> {
     let r2 = clock.rise(n.switched_at, 1);
     let a = r2.opacity;
     let gpu = app.passthrough.as_ref().and_then(|p| n.chosen_gpu(&p.1));
+    let set = vm::advanced_set_command(&n.name, &app.settings.advanced);
     let cmd = vm::create_command(
         &n.name,
         n.version.slug(),
         n.cpus,
         n.memory_gib,
         n.disk_gib,
-        gpu.is_none(),
+        gpu.is_none() && set.is_none(),
         n.current_identity(),
+        &app.settings.advanced,
     );
     let mut lines = vec![format!("$ {}", vm::display(&cmd))];
+    if let Some(set) = &set {
+        lines.push(format!("$ {}", vm::display(set)));
+    }
     if let Some(g) = gpu {
         for c in pt::finish_create_commands(&n.name, n.version, g) {
             lines.push(format!("$ {c}"));
         }
+    }
+    if gpu.is_some() || set.is_some() {
         lines.push(format!("$ reims-ctl start {}", n.name));
     }
     let hw = app.locale.t_args(
