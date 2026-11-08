@@ -54,7 +54,7 @@ getent group kvm >/dev/null
 if command -v apt-get >/dev/null; then apt-get remove -y -qq cuvee cuvee-runtime >/dev/null
 elif command -v dnf >/dev/null; then dnf remove -y -q cuvee cuvee-runtime >/dev/null
 else zypper --non-interactive -q remove cuvee cuvee-runtime >/dev/null; fi
-if [[ -e /usr/lib/cuvee || -e /usr/bin/cuvee ]]; then echo "files left after removal"; fail=1; fi
+if [[ -e /usr/lib/cuvee || -e /usr/bin/cuvee ]]; then echo "files left after removal:"; find /usr/lib/cuvee /usr/bin/cuvee 2>/dev/null | head; fail=1; fi
 ((fail == 0)) && echo "ok: $PRETTY_NAME"
 exit "$fail"
 SH
