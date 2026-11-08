@@ -47,14 +47,14 @@ jobs:
             tar -xz -C /usr/local/bin nfpm
       - uses: actions/checkout@v4
       - name: Binaries from this run
-        if: github.event_name != 'workflow_dispatch'
+        if: inputs.from-release == ''
         uses: actions/download-artifact@v4
         with:
           # build.yml's combined artifact: cuvee, cuvee-gui, the runtime tarball, SHA256SUMS.
           name: dist
           path: dist/in
       - name: Binaries from release ${{ inputs.from-release }}
-        if: github.event_name == 'workflow_dispatch'
+        if: inputs.from-release != ''
         env:
           TAG: ${{ inputs.from-release }}
         run: |
