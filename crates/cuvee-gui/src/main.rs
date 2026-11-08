@@ -849,6 +849,17 @@ impl App {
         }
     }
 
+    /// When the newest motion began: entering a screen, a new step of "Nova máquina" or
+    /// another tab of "O que esperar". The latest one decides whether anything still moves;
+    /// the earliest is always the app's start, which made every entrance look settled.
+    fn last_motion(&self) -> Instant {
+        latest(&[
+            self.entered_at,
+            self.nova.switched_at,
+            self.group_switched_at,
+        ])
+    }
+
     fn subscription(&self) -> Subscription<Message> {
         let mut subs = vec![iced::time::every(Duration::from_secs(5)).map(|_| Message::Refresh)];
         // While something moves (entrances, the breathing dot, the bubbles) tick once per
@@ -859,12 +870,8 @@ impl App {
             && (matches!(
                 self.screen,
                 Screen::Painel | Screen::Execucao(_) | Screen::Diagnostico
-            ) || !self.clock().is_settled(
-                self.entered_at
-                    .min(self.nova.switched_at)
-                    .min(self.group_switched_at),
-                12,
-            ) || self.notice.is_some());
+            ) || !self.clock().is_settled(self.last_motion(), 12)
+                || self.notice.is_some());
         if animating {
             subs.push(iced::window::frames().map(Message::Tick));
         } else {
@@ -918,6 +925,14 @@ fn app_theme(_: &App) -> iced::Theme {
 
 fn app_style(_: &App, t: &iced::Theme) -> iced::theme::Style {
     theme::app_style(t)
+}
+
+fn latest(instants: &[Instant]) -> Instant {
+    instants
+        .iter()
+        .copied()
+        .max()
+        .expect("at least one instant")
 }
 
 fn push(samples: &mut Vec<f32>, v: f32) {
@@ -1010,4 +1025,22 @@ fn run_privileged(command: &str) -> Result<(), String> {
 
 fn whoami() -> String {
     std::env::var("USER").unwrap_or_else(|_| "root".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_fresh_entrance_keeps_animating_long_after_start() {
+        let boot = Instant::now();
+        let entered = boot + Duration::from_secs(60);
+        let clock = Clock {
+            now: entered + Duration::from_millis(100),
+            reduce_motion: false,
+        };
+        let start = latest(&[entered, boot, boot]);
+        assert_eq!(start, entered);
+        assert!(!clock.is_settled(start, 12));
+    }
 }
