@@ -125,6 +125,24 @@ o disco "QEMU HARDDISK Media" como APFS e escolha "Reinstalar macOS".
 
 Para soltar o teclado e o mouse da janela da VM: **Ctrl+Alt+Super**.
 
+### Identidade do Mac (SMBIOS)
+
+Cada VM apresenta um Mac próprio: modelo, número de série, MLB, UUID e ROM,
+gerados pelo reims-util no formato das séries da Apple (as tabelas são as do
+macserial do OpenCore, licença BSD-3-Clause), como fazem o GenSMBIOS e o guia
+da Olarila. O modelo segue a versão do macOS: iMac20,1 do 10.15 ao 26 e
+iMacPro1,1 no 10.13 e 10.14 ou quando a VM recebe uma GPU física. A ROM é o
+endereço da placa de rede da VM.
+
+```sh
+cuvee smbios show mac                   # o Mac que a VM apresenta
+cuvee smbios new mac                    # outra série, MLB, UUID e ROM (VM desligada)
+cuvee smbios generate --macos sequoia   # só gera uma identidade, sem VM
+```
+
+No aplicativo, a revisão de "Nova máquina" mostra a identidade que a VM vai
+ter, com o botão "Gerar de novo".
+
 ## Aplicativo (cuvee-gui)
 
 Interface em Rust ([iced](https://iced.rs)) para criar, ligar e acompanhar as
@@ -153,6 +171,7 @@ Guia completo em português e inglês: <https://yurisanp.github.io/cuvee/>
 | `crates/cuvee-core` | núcleo: diagnóstico, catálogo de macOS, VMs, traduções |
 | `crates/cuvee-gui` | o aplicativo |
 | `crates/cuvee-cli/src/cmd/passthrough.rs` | o subcomando `cuvee passthrough` |
+| `crates/cuvee-core/src/smbios.rs` | a identidade do Mac de cada VM (`cuvee smbios`) |
 | `docs/passthrough.md` | GPU passthrough: GPUs que servem e passo a passo |
 | `host/` | regra udev e módulo carregado no boot (udmabuf) |
 | `packaging/reims-vgpu-git` | PKGBUILD do reims-vgpu, QEMU, reims-ctl e reims-util |

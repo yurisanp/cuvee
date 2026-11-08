@@ -793,6 +793,7 @@ dependencies = [
  "anyhow",
  "clap",
  "cuvee-core",
+ "serde_json",
 ]
 
 [[package]]

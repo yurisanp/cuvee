@@ -293,3 +293,19 @@ nova-gpu = Physical GPU
 nova-gpu-none = Virtual GPU only
 nova-gpu-hint = Hand an AMD or NVIDIA Kepler GPU to the VM for Metal on macOS { $macos }.
 nova-gpu-no-candidate = No GPU in this computer works with macOS { $macos }. The VM runs without acceleration.
+
+# The Mac's identity (SMBIOS)
+smbios-model = Model
+smbios-serial = Serial
+smbios-show-title = The Mac { $vm } presents
+smbios-new-warning = With a new identity, macOS sees another Mac: iCloud, iMessage and FaceTime ask you to sign in again, and apps licensed per machine may ask to be activated.
+smbios-new-confirm = Give { $vm } a new identity?
+smbios-new-needs-yes = No terminal to confirm on: run it again with --yes.
+smbios-new-done = { $vm } now presents another Mac
+smbios-new-old = Its serial was { $serial }; the OpenCore image as it was before Cuvée first changed it is at { $backup }.
+smbios-check-coverage = To check the serial at { $url }: "unable to check coverage" is what it should get, as it belongs to no Mac Apple sold.
+nova-identity = The Mac's identity
+nova-identity-making = Making a serial, MLB, UUID and ROM…
+nova-identity-again = Make another
+nova-identity-hint = Each machine gets an identity of its own, shaped like Apple's. The ROM is the VM's network card's address.
+nova-identity-failed = Could not make the identity now ({ $error }). reims-ctl will make one when it creates the machine.

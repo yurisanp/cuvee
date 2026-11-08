@@ -180,6 +180,8 @@ pub fn host_memory_gib() -> u32 {
 }
 
 /// The `reims-ctl create` command for a new x86-64 VM; shown in the review step and run as is.
+/// With `identity`, the VM gets that staged OpenCore image (a copy) and its ROM as its network
+/// card's address; without, reims-ctl makes it an image with a new identity.
 pub fn create_command(
     name: &str,
     macos_slug: &str,
@@ -187,6 +189,7 @@ pub fn create_command(
     memory_gib: u32,
     disk_gib: u32,
     start: bool,
+    identity: Option<&crate::smbios::Staged>,
 ) -> Command {
     let mut c = crate::paths::reims_ctl_command();
     c.arg("create")
@@ -195,6 +198,9 @@ pub fn create_command(
         .args(["--cpus", &cpus.to_string()])
         .args(["--memory", &format!("{memory_gib}G")])
         .args(["--disk-size", &format!("{disk_gib}G")]);
+    if let Some(s) = identity {
+        c.arg("--opencore").arg(&s.image).args(["--mac", &s.mac]);
+    }
     if start {
         c.arg("--start");
     }

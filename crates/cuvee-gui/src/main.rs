@@ -13,6 +13,7 @@ use cuvee_core::i18n::Locale;
 use cuvee_core::macos::{Group, Version};
 use cuvee_core::passthrough::{self as pt, Gpu, HostState};
 use cuvee_core::settings::Settings;
+use cuvee_core::smbios::{self, Staged};
 use cuvee_core::vm::{self, Vm};
 use iced::widget::{container, row};
 use iced::{Element, Length, Subscription, Task};
@@ -69,12 +70,28 @@ pub struct Nova {
     pub gpu: Option<String>,
     pub switched_at: Instant,
     pub busy: bool,
+    /// The OpenCore image made for the VM, with the identity the review shows.
+    pub identity: Option<Staged>,
+    pub identity_making: bool,
+    pub identity_error: Option<String>,
 }
 
 impl Nova {
     /// The chosen GPU, if it is still on the host.
     pub fn chosen_gpu<'a>(&self, gpus: &'a [Gpu]) -> Option<&'a Gpu> {
         self.gpu.as_deref().and_then(|a| pt::find(gpus, a))
+    }
+
+    /// The Mac the VM should present: it depends on the macOS and on a passed GPU.
+    pub fn wanted_model(&self) -> cuvee_core::macos::Model {
+        self.version.model_for(self.gpu.is_some())
+    }
+
+    /// The staged identity, if it is still for the Mac the VM should present.
+    pub fn current_identity(&self) -> Option<&Staged> {
+        self.identity
+            .as_ref()
+            .filter(|s| s.identity.model == self.wanted_model().name())
     }
 }
 
@@ -126,6 +143,8 @@ pub enum Message {
     NovaBack,
     NovaCreate,
     NovaCreated(Result<(), String>),
+    NovaIdentityAgain,
+    NovaIdentity(Result<Staged, String>),
     // Diagnóstico
     DiagFix,
     DiagFixed(Result<(), String>),
@@ -147,6 +166,8 @@ pub enum Message {
 impl App {
     fn boot() -> (Self, Task<Message>) {
         let settings = Settings::load();
+        // Images staged by a "Nova máquina" left without creating.
+        smbios::clear_staged();
         let now = Instant::now();
         let app = Self {
             locale: Locale::new(&settings.language),
@@ -169,6 +190,9 @@ impl App {
                 gpu: None,
                 switched_at: now,
                 busy: false,
+                identity: None,
+                identity_making: false,
+                identity_error: None,
             },
             group: Group::Tahoe,
             group_switched_at: now,
@@ -308,6 +332,23 @@ impl App {
                     self.nova.step += 1;
                     self.nova.switched_at = Instant::now();
                 }
+                if self.nova.step == 3 && self.nova.current_identity().is_none() {
+                    return self.stage_identity();
+                }
+                Task::none()
+            }
+            Message::NovaIdentityAgain => self.stage_identity(),
+            Message::NovaIdentity(result) => {
+                self.nova.identity_making = false;
+                match result {
+                    Ok(s) => {
+                        if let Some(old) = self.nova.identity.replace(s) {
+                            old.discard();
+                        }
+                        self.nova.identity_error = None;
+                    }
+                    Err(e) => self.nova.identity_error = Some(e),
+                }
                 Task::none()
             }
             Message::NovaBack => {
@@ -325,6 +366,7 @@ impl App {
                 let n = self.nova.clone();
                 let pass = self.passthrough.clone();
                 let gpu = pass.as_ref().and_then(|p| n.chosen_gpu(&p.1)).cloned();
+                let identity = n.current_identity().cloned();
                 // With a GPU, the VM starts only if the host is ready for it already.
                 let start = match (&gpu, &pass) {
                     (None, _) => true,
@@ -340,8 +382,13 @@ impl App {
                             n.memory_gib,
                             n.disk_gib,
                             gpu.is_none(),
+                            identity.as_ref(),
                         );
                         run_command(&mut cmd)?;
+                        // reims-ctl copied the image.
+                        if let Some(s) = &identity {
+                            s.discard();
+                        }
                         if let Some(g) = &gpu {
                             pt::finish_create(&n.name, n.version, g).map_err(|e| e.to_string())?;
                             if start {
@@ -358,6 +405,7 @@ impl App {
                 match result {
                     Ok(()) => {
                         self.nova.step = 0;
+                        self.nova.identity = None;
                         self.go(Screen::Painel);
                         load()
                     }
@@ -510,6 +558,19 @@ impl App {
                 Task::none()
             }
         }
+    }
+
+    /// Has reims-util make the new VM's OpenCore image, with a new identity, in the background.
+    fn stage_identity(&mut self) -> Task<Message> {
+        if self.nova.identity_making {
+            return Task::none();
+        }
+        self.nova.identity_making = true;
+        let model = self.nova.wanted_model();
+        Task::perform(
+            run_blocking(move || smbios::stage(model).map_err(|e| format!("{e:#}"))),
+            Message::NovaIdentity,
+        )
     }
 
     fn save_settings(&mut self) {

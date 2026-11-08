@@ -10,6 +10,8 @@
 //! - [`release`]: downloading and checking a release's files from GitHub.
 //! - [`signature`]: where release signatures are checked.
 //! - [`passthrough`]: GPU passthrough (VFIO) for macOS 10.13 to 15: GPUs, IOMMU, host setup.
+//! - [`smbios`]: the Mac a VM presents (model, serial, MLB, UUID, ROM), made by reims-util.
+//! - [`opencore`]: reading and editing the config.plist in a VM's OpenCore image.
 //! - [`settings`]: the app's own settings (language, reduced motion) in the XDG config dir.
 //!
 //! SPDX-License-Identifier: GPL-3.0-or-later
@@ -18,10 +20,12 @@ pub mod distro;
 pub mod host;
 pub mod i18n;
 pub mod macos;
+pub mod opencore;
 pub mod passthrough;
 pub mod paths;
 pub mod release;
 pub mod report;
 pub mod settings;
 pub mod signature;
+pub mod smbios;
 pub mod vm;
