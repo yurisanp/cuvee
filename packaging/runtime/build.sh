@@ -24,6 +24,7 @@
 set -euo pipefail
 
 OUT="${1:?usage: build.sh OUT_DIR}"
+mkdir -p "$OUT" && OUT="$(cd "$OUT" && pwd)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=packaging/runtime/UPSTREAM
 . "$HERE/UPSTREAM"
