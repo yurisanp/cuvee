@@ -65,11 +65,27 @@ o disco "QEMU HARDDISK Media" como APFS e escolha "Reinstalar macOS".
 
 Para soltar o teclado e o mouse da janela da VM: **Ctrl+Alt+Super**.
 
+## Aplicativo (cuvee-gui)
+
+Interface em Rust ([iced](https://iced.rs)) para criar, ligar e acompanhar as
+VMs, com diagnóstico do host, dicas por versão do macOS e um guia do que
+esperar de cada uma. Em português e inglês; respeita a preferência de
+"reduzir movimento".
+
+```sh
+cargo run --release -p cuvee-gui
+```
+
+Precisa do `reims-ctl` no PATH (o pacote `reims-vgpu-git` já o instala). Os
+ajustes ficam em `~/.config/cuvee/settings.toml`.
+
 ## Estrutura
 
 | Caminho | O que é |
 |---|---|
 | `bin/cuvee` | o comando `cuvee` |
+| `crates/cuvee-core` | núcleo: diagnóstico, catálogo de macOS, VMs, traduções |
+| `crates/cuvee-gui` | o aplicativo |
 | `host/` | regra udev e módulo carregado no boot (udmabuf) |
 | `packaging/reims-vgpu-git` | PKGBUILD do reims-vgpu, QEMU, reims-ctl e reims-util |
 | `packaging/cuvee-git` | PKGBUILD do Cuvée |
