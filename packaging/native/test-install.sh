@@ -27,9 +27,9 @@ if command -v apt-get >/dev/null; then
   apt-get update -qq
   apt-get install -y -qq /pkgs/cuvee-runtime_*.deb /pkgs/cuvee_*.deb >/dev/null
 elif command -v dnf >/dev/null; then
-  dnf install -y -q /pkgs/cuvee-runtime-*.rpm /pkgs/cuvee[.-][0-9x]*.rpm >/dev/null
+  dnf install -y -q /pkgs/cuvee-runtime[.-]*.rpm /pkgs/cuvee[.-][0-9x]*.rpm >/dev/null
 elif command -v zypper >/dev/null; then
-  zypper --non-interactive -q install --allow-unsigned-rpm /pkgs/cuvee-runtime-*.rpm /pkgs/cuvee[.-][0-9x]*.rpm >/dev/null
+  zypper --non-interactive -q install --allow-unsigned-rpm /pkgs/cuvee-runtime[.-]*.rpm /pkgs/cuvee[.-][0-9x]*.rpm >/dev/null
 else
   echo "no package manager I know" >&2; exit 1
 fi
