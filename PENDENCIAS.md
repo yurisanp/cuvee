@@ -39,15 +39,10 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
 
 ## Antes da v0.3 (pacotes nativos e documentação)
 
-- [ ] Criar a chave de assinatura das releases com
-  [minisign](https://jedisct1.github.io/minisign/):
-  ```sh
-  minisign -G -p cuvee.pub -s cuvee.key
-  ```
-  Guarde `cuvee.key` e a senha num gerenciador de senhas. Cadastre o conteúdo
-  de `cuvee.key` como secret `MINISIGN_KEY` e a senha como
-  `MINISIGN_PASSWORD` (Settings > Secrets and variables > Actions). Faça commit
-  de `cuvee.pub` na raiz do repositório.
+- [x] Criar a chave de assinatura das releases com minisign, cadastrar
+  `MINISIGN_KEY` e `MINISIGN_PASSWORD` nos secrets do Actions e guardar
+  `cuvee.key` fora do repositório (8 de novembro de 2026). A chave pública
+  está em `cuvee.pub`.
 - [ ] Conseguir três pessoas de fora para instalar só lendo a documentação.
 
 ## Antes da v0.4 (GPU passthrough)
@@ -76,6 +71,9 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
 
 - [ ] Acesso a três GPUs para a matriz de testes: AMD, Intel e NVIDIA.
   Cada pessoa roda `cuvee report` e te manda o arquivo.
+- [ ] Em Settings > General > Features, ligar **Discussions** (o modelo de
+  issue manda dúvidas para lá). Em Settings > Code security, ligar **Private
+  vulnerability reporting** (o SECURITY.md aponta para ele).
 - [ ] Escolher o canal de suporte. O padrão são as issues do GitHub; se quiser
   Discord ou Telegram, crie o grupo e me passe o link.
 - [ ] Deixar a v1.0 rodando 30 dias sem bug que impeça instalar ou ligar a VM.
