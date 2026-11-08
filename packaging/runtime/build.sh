@@ -49,6 +49,9 @@ if command -v apt-get >/dev/null 2>&1; then
     libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev \
     libxtst-dev libxkbcommon-dev libwayland-dev libwayland-bin libdecor-0-dev \
     libegl-dev libgl-dev libdrm-dev libgbm-dev libdbus-1-dev libudev-dev >/dev/null
+  # clang 14's LLVM plugin makes binutils' nm abort on the library's linked object
+  # ("LLVM ERROR: Invalid encoding"); the build needs plain ELF tools.
+  rm -f /usr/lib/bfd-plugins/LLVMgold*.so
 fi
 
 if ! command -v rustup >/dev/null 2>&1; then
