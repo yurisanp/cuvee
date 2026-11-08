@@ -1,0 +1,65 @@
+# Builds the runtime (reims-vgpu's QEMU, reims-ctl and reims-util) once per
+# reims-vgpu commit and build script, and reuses it from the Actions cache
+# after that. A rebuild takes 30 to 60 minutes; a cache hit takes seconds.
+# The cache key is the resolved reims-vgpu commit plus a hash of
+# packaging/runtime/, so a new pin in UPSTREAM or any change to build.sh
+# builds again.
+#
+# Caches saved on main are visible to every branch, PR and tag, so pushes to
+# main that touch packaging/runtime/ build it here first.
+name: Runtime
+
+on:
+  workflow_call:
+    inputs:
+      reims_vgpu_rev:
+        description: reims-vgpu commit or branch (empty for the one packaging/runtime/UPSTREAM pins)
+        type: string
+        default: ""
+  push:
+    branches: [main]
+    paths:
+      - packaging/runtime/**
+      - .github/workflows/runtime.yml
+  workflow_dispatch:
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    timeout-minutes: 180
+    steps:
+      - name: git for checkout
+        run: apt-get update -qq && apt-get install -y -qq git ca-certificates curl >/dev/null
+      - uses: actions/checkout@v4
+      - name: Resolve the reims-vgpu commit
+        id: rev
+        env:
+          REV: ${{ inputs.reims_vgpu_rev }}
+        run: |
+          . packaging/runtime/UPSTREAM
+          rev="${REV:-$REIMS_VGPU_COMMIT}"
+          if [[ ! $rev =~ ^[0-9a-f]{40}$ ]]; then
+            rev=$(git ls-remote https://github.com/steelbrain/reims-vgpu.git "$rev" "refs/heads/$rev" "refs/tags/$rev" | head -1 | cut -f1)
+            [[ -n $rev ]] || { echo "::error::reims-vgpu: '$REV' não existe"; exit 1; }
+          fi
+          echo "sha=$rev" >> "$GITHUB_OUTPUT"
+          echo "reims-vgpu $rev"
+      - name: Cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: out/
+          key: runtime-v1-${{ steps.rev.outputs.sha }}-${{ hashFiles('packaging/runtime/**') }}
+      - name: Build QEMU, reims-ctl and reims-util
+        if: steps.cache.outputs.cache-hit != 'true'
+        env:
+          REIMS_VGPU_REV: ${{ steps.rev.outputs.sha }}
+        run: packaging/runtime/build.sh out
+      - name: Reused from the cache
+        if: steps.cache.outputs.cache-hit == 'true'
+        run: ls -l out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime
+          path: out/
