@@ -1,0 +1,14 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: reims-vgpu, qemu-reims-vgpu, reims-util
+Source: https://github.com/steelbrain/reims-vgpu
+
+Files: usr/bin/reims-ctl usr/bin/reims-util usr/lib/cuvee/qemu/share/qemu/ReimsVgpu.rom
+Copyright: the reims-vgpu and reims-util authors
+License: GPL-2.0-or-later or LGPL-3.0-or-later
+ The license texts are in /usr/share/licenses/cuvee-runtime/.
+
+Files: usr/lib/cuvee/qemu/*
+Copyright: the QEMU authors
+License: GPL-2.0-only
+ On Debian systems, the full text of the GNU General Public License
+ version 2 can be found in /usr/share/common-licenses/GPL-2.

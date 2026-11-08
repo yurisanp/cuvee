@@ -1,0 +1,46 @@
+# nfpm config for `cuvee-runtime`: Reims vGPU's QEMU, reims-ctl and reims-util,
+# from the cuvee-runtime tarball the release builds. QEMU goes to
+# /usr/lib/cuvee/qemu, apart from the distro's own qemu, so both can be installed.
+name: cuvee-runtime
+arch: amd64
+platform: linux
+version: ${CUVEE_VERSION}
+release: ${CUVEE_RELEASE}
+section: otherosfs
+priority: optional
+maintainer: Yuri <62726473+yurisanp@users.noreply.github.com>
+vendor: Cuvée
+homepage: https://github.com/yurisanp/cuvee
+license: GPL-2.0-or-later OR LGPL-3.0-or-later; GPL-2.0-only (QEMU)
+description: |-
+  Reims vGPU's QEMU, reims-ctl and reims-util, for Cuvée
+  The QEMU build with the Reims vGPU virtual GPU (installed in
+  /usr/lib/cuvee/qemu, apart from the distro's qemu), plus reims-ctl, which
+  creates and runs macOS VMs, and reims-util, which makes their OpenCore
+  images. Built from the upstream commits recorded in
+  /usr/lib/cuvee/runtime.toml.
+conflicts:
+  - reims-ctl
+  - reims-util
+replaces:
+  - reims-ctl
+  - reims-util
+
+contents:
+  - src: ${STAGE}/runtime/qemu/
+    dst: /usr/lib/cuvee/qemu/
+    type: tree
+  - src: ${STAGE}/runtime/bin/reims-ctl
+    dst: /usr/bin/reims-ctl
+    file_info: {mode: 0755}
+  - src: ${STAGE}/runtime/bin/reims-util
+    dst: /usr/bin/reims-util
+    file_info: {mode: 0755}
+  - src: ${STAGE}/runtime/runtime.toml
+    dst: /usr/lib/cuvee/runtime.toml
+  - src: ${STAGE}/runtime/licenses/
+    dst: /usr/share/licenses/cuvee-runtime/
+    type: tree
+  - src: ${REPO}/packaging/native/copyright-runtime
+    dst: /usr/share/doc/cuvee-runtime/copyright
+    packager: deb

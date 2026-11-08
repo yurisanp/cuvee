@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Cuvée
+GenericName=macOS virtual machines
+GenericName[pt_BR]=Máquinas virtuais de macOS
+Comment=Create and run macOS VMs with graphics acceleration
+Comment[pt_BR]=Crie e rode VMs de macOS com aceleração gráfica
+Exec=cuvee-gui
+Icon=computer
+Terminal=false
+Categories=System;Emulator;
+Keywords=macOS;VM;QEMU;KVM;virtual machine;

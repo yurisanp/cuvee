@@ -15,7 +15,7 @@ pub enum GpuVendor {
 }
 
 impl GpuVendor {
-    fn from_pci(id: &str) -> Self {
+    pub(crate) fn from_pci(id: &str) -> Self {
         match id.trim() {
             "0x1002" => Self::Amd,
             "0x8086" => Self::Intel,
