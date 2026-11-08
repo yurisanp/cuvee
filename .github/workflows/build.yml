@@ -48,21 +48,10 @@ jobs:
           path: out/
 
   runtime:
-    runs-on: ubuntu-latest
-    container: ubuntu:22.04
-    timeout-minutes: 180
-    steps:
-      - name: git for checkout
-        run: apt-get update -qq && apt-get install -y -qq git ca-certificates curl >/dev/null
-      - uses: actions/checkout@v4
-      - name: Build QEMU, reims-ctl and reims-util
-        env:
-          REIMS_VGPU_REV: ${{ inputs.reims_vgpu_rev }}
-        run: packaging/runtime/build.sh out
-      - uses: actions/upload-artifact@v4
-        with:
-          name: runtime
-          path: out/
+    # Cached per reims-vgpu commit; see runtime.yml.
+    uses: ./.github/workflows/runtime.yml
+    with:
+      reims_vgpu_rev: ${{ inputs.reims_vgpu_rev }}
 
   dist:
     needs: [cli, app, runtime]
