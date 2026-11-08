@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = ["crates/cuvee-core", "crates/cuvee-gui"]
+# makepkg clones upstream sources under packaging/*/src; they are not ours to build here.
+exclude = ["packaging"]
 
 [workspace.package]
 version = "0.1.0"
