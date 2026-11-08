@@ -1,0 +1,62 @@
+name: Problema / Bug
+description: Algo não instala, a VM não liga ou se comporta errado.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar. Antes de abrir, veja se a aba **Comportamento** do
+        app ou o `cuvee doctor` já explicam o que você está vendo.
+  - type: textarea
+    id: what
+    attributes:
+      label: O que aconteceu
+      description: O que você fez, o que esperava e o que aconteceu de fato.
+    validations:
+      required: true
+  - type: dropdown
+    id: macos
+    attributes:
+      label: Versão do macOS na VM
+      options: ["26 Tahoe", "15 Sequoia", "14 Sonoma", "13 Ventura", "12 Monterey", "11 Big Sur", "10.15 Catalina", "10.14 Mojave", "10.13 High Sierra", "Ainda não instalou"]
+    validations:
+      required: true
+  - type: dropdown
+    id: gpu
+    attributes:
+      label: GPU do Linux
+      options: [AMD, Intel, NVIDIA, Outra]
+    validations:
+      required: true
+  - type: dropdown
+    id: session
+    attributes:
+      label: Sessão gráfica
+      options: [Wayland, X11, Sem sessão gráfica]
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribuição e versão
+      placeholder: Arch, Ubuntu 24.04, Fedora 43...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versão do Cuvée
+      description: Saída de `cuvee --version`.
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Relatório
+      description: |
+        Anexe o arquivo gerado por `cuvee report` (arraste para cá). Se o seu
+        Cuvée ainda não tem esse comando, cole a saída de `cuvee doctor` e de
+        `reims-ctl report`.
+      render: text
+    validations:
+      required: true

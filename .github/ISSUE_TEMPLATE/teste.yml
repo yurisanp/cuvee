@@ -1,0 +1,43 @@
+name: Resultado de teste (matriz)
+description: Conte como o Cuvée funcionou na sua combinação de GPU, sessão e macOS.
+labels: [matriz]
+body:
+  - type: markdown
+    attributes:
+      value: Cada resultado preenche uma célula de [docs/MATRIZ.md](../blob/main/docs/MATRIZ.md).
+  - type: dropdown
+    id: gpu
+    attributes:
+      label: GPU do Linux
+      options: [AMD, Intel, NVIDIA]
+    validations:
+      required: true
+  - type: dropdown
+    id: session
+    attributes:
+      label: Sessão gráfica
+      options: [Wayland, X11]
+    validations:
+      required: true
+  - type: dropdown
+    id: macos
+    attributes:
+      label: Versão do macOS
+      options: ["26 Tahoe", "15 Sequoia", "14 Sonoma", "13 Ventura", "12 Monterey", "11 Big Sur", "10.15 Catalina", "10.14 Mojave", "10.13 High Sierra"]
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Resultado
+      options:
+        - Funciona bem (instala, liga, desktop fluido)
+        - Funciona com limites (explique abaixo)
+        - Não funciona (explique abaixo)
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Detalhes
+      description: O que funcionou, o que não funcionou. Anexe o arquivo do `cuvee report`.
