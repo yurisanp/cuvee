@@ -51,7 +51,10 @@ pub fn parse_list(json: &str) -> Result<Vec<Vm>> {
 
 /// Runs `reims-ctl list --json`. An empty list when reims-ctl is not installed.
 pub fn list() -> Result<Vec<Vm>> {
-    let out = match Command::new("reims-ctl").args(["list", "--json"]).output() {
+    let out = match crate::paths::reims_ctl_command()
+        .args(["list", "--json"])
+        .output()
+    {
         Ok(o) => o,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(e) => return Err(e).context("running reims-ctl"),
@@ -68,7 +71,7 @@ pub fn list() -> Result<Vec<Vm>> {
 /// `reims-ctl start NAME`, `stop NAME`, `stop --force NAME`: the command to run, not run here,
 /// so the GUI can show it and run it in the background.
 pub fn command(action: Action, name: &str) -> Command {
-    let mut c = Command::new("reims-ctl");
+    let mut c = crate::paths::reims_ctl_command();
     match action {
         Action::Start => c.arg("start"),
         Action::Stop => c.arg("stop"),
@@ -185,7 +188,7 @@ pub fn create_command(
     disk_gib: u32,
     start: bool,
 ) -> Command {
-    let mut c = Command::new("reims-ctl");
+    let mut c = crate::paths::reims_ctl_command();
     c.arg("create")
         .arg(name)
         .args(["--macos", macos_slug])
@@ -200,7 +203,13 @@ pub fn create_command(
 
 /// A command as the user would type it.
 pub fn display(c: &Command) -> String {
-    std::iter::once(c.get_program())
+    // reims-ctl by name, not by the user runtime's full path.
+    let program = std::path::Path::new(c.get_program());
+    let program = match program.file_name() {
+        Some(n) if n == "reims-ctl" => n,
+        _ => c.get_program(),
+    };
+    std::iter::once(program)
         .chain(c.get_args())
         .map(|a| a.to_string_lossy().into_owned())
         .collect::<Vec<_>>()

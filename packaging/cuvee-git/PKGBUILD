@@ -4,11 +4,11 @@ pkgname=cuvee-git
 pkgver=r0.0000000
 pkgrel=1
 pkgdesc="macOS virtual machines on Arch Linux, built on reims-vgpu's reims-ctl"
-arch=(any)
+arch=(x86_64)
 url="https://github.com/yurisanp/cuvee"
 license=(GPL-3.0-or-later)
-depends=(bash reims-vgpu-git)
-makedepends=(git)
+depends=(reims-vgpu-git gcc-libs glibc)
+makedepends=(git cargo)
 optdepends=('vulkan-tools: lets cuvee doctor test Vulkan')
 provides=(cuvee)
 conflicts=(cuvee)
@@ -23,10 +23,37 @@ pkgver() {
   printf 'r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
 }
 
+# cargo can come from rustup (reims-vgpu-git needs it) with no default toolchain set.
+if command -v rustup >/dev/null 2>&1; then
+  export RUSTUP_TOOLCHAIN=stable
+fi
+
+prepare() {
+  cd cuvee
+  if command -v rustup >/dev/null 2>&1; then
+    rustup toolchain install stable --profile minimal
+  fi
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd cuvee
+  export CARGO_TARGET_DIR=target
+  export RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$srcdir=/usr/src/$pkgname"
+  cargo build --frozen --release -p cuvee-cli
+}
+
+check() {
+  cd cuvee
+  cargo test --frozen -p cuvee-core -p cuvee-cli
+}
+
 package() {
   cd cuvee
-  install -Dm755 bin/cuvee "$pkgdir/usr/bin/cuvee"
-  sed -i "s/@VERSION@/$pkgver/" "$pkgdir/usr/bin/cuvee"
+  install -Dm755 target/release/cuvee "$pkgdir/usr/bin/cuvee"
+  # cuvee install and cuvee update leave this install to pacman.
+  install -d "$pkgdir/usr/lib/cuvee"
+  echo pacman >"$pkgdir/usr/lib/cuvee/packaged"
   install -Dm644 host/70-cuvee-udmabuf.rules "$pkgdir/usr/lib/udev/rules.d/70-cuvee-udmabuf.rules"
   install -Dm644 host/cuvee.conf "$pkgdir/usr/lib/modules-load.d/cuvee.conf"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

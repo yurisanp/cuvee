@@ -9,3 +9,5 @@
 /packaging/cuvee-git/cuvee
 dist/
 site/
+# Chave privada do minisign: nunca no repositório.
+cuvee.key

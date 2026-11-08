@@ -3,9 +3,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Where the packaged QEMU lives (the `reims-vgpu-git` package puts it there).
-pub const QEMU_BIN: &str = "/usr/lib/cuvee/qemu/bin/qemu-system-x86_64";
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GpuVendor {
     Amd,
@@ -99,6 +96,7 @@ pub struct Report {
     pub session: Session,
     pub reims_ctl: Option<PathBuf>,
     pub reims_util: Option<PathBuf>,
+    pub qemu: Option<PathBuf>,
 }
 
 impl Report {
@@ -172,12 +170,7 @@ pub fn session() -> Session {
     }
 }
 
-fn which(bin: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path)
-        .map(|d| d.join(bin))
-        .find(|p| p.is_file())
-}
+use crate::paths::which;
 
 fn cpu_has_virt() -> bool {
     std::fs::read_to_string("/proc/cpuinfo")
@@ -208,6 +201,33 @@ fn max_map_count() -> Option<u64> {
         .ok()
 }
 
+/// The vm.max_map_count a new VM needs on NVIDIA so the GPU maps its memory without copies,
+/// as reims-ctl and upstream's install script work it out: a new VM gets half the host's
+/// memory (4 to 16 GiB), a mapping per 4 KiB page plus 24,576 spare, rounded up to a power
+/// of two from 1,048,576.
+pub fn wanted_max_map_count() -> u64 {
+    let mem_kib = std::fs::read_to_string("/proc/meminfo")
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with("MemTotal:"))
+                .and_then(|l| l.split_whitespace().nth(1))
+                .and_then(|v| v.parse::<u64>().ok())
+        })
+        .unwrap_or(0);
+    max_map_count_for(mem_kib)
+}
+
+fn max_map_count_for(mem_kib: u64) -> u64 {
+    let vm_mib = (mem_kib / 2 / 1_048_576 * 1024).clamp(4096, 16384);
+    let want = vm_mib * 256 + 24_576;
+    let mut raise = 1_048_576;
+    while raise < want {
+        raise *= 2;
+    }
+    raise
+}
+
 /// Free bytes on the file system that holds the user's data directory.
 fn free_bytes(path: &Path) -> Option<u64> {
     // `df` keeps this free of libc bindings; the number is only advisory.
@@ -235,8 +255,9 @@ fn data_dir() -> PathBuf {
 pub fn inspect() -> Report {
     let gpus = gpu_vendors();
     let session = session();
-    let reims_ctl = which("reims-ctl");
-    let reims_util = which("reims-util");
+    let reims_ctl = crate::paths::reims_ctl();
+    let reims_util = crate::paths::reims_util();
+    let qemu = crate::paths::qemu_binary().filter(|q| q.is_file());
     let mut checks = Vec::with_capacity(CheckId::ALL.len());
 
     checks.push(if cpu_has_virt() {
@@ -279,7 +300,7 @@ pub fn inspect() -> Report {
     });
 
     checks.push(
-        if reims_ctl.is_some() && reims_util.is_some() && Path::new(QEMU_BIN).exists() {
+        if reims_ctl.is_some() && reims_util.is_some() && qemu.is_some() {
             Check {
                 id: CheckId::ReimsTools,
                 level: Level::Ok,
@@ -291,7 +312,9 @@ pub fn inspect() -> Report {
                 id: CheckId::ReimsTools,
                 level: Level::Bad,
                 advice_key: Some("advice-reims-tools"),
-                fix_command: None,
+                fix_command: crate::paths::packaged()
+                    .is_none()
+                    .then(|| "cuvee install".into()),
             }
         },
     );
@@ -340,14 +363,15 @@ pub fn inspect() -> Report {
         }
     });
 
-    // Only NVIDIA pays for a low vm.max_map_count (reims-vgpu docs); 1048576 is a safe value.
+    // Only NVIDIA pays for a low vm.max_map_count (reims-vgpu docs).
     let nvidia = gpus.contains(&GpuVendor::Nvidia);
+    let want = wanted_max_map_count();
     checks.push(match max_map_count() {
-        Some(n) if nvidia && n < 1_048_576 => Check {
+        Some(n) if nvidia && n < want => Check {
             id: CheckId::MaxMapCount,
             level: Level::Warn,
             advice_key: Some("advice-max-map-count"),
-            fix_command: Some("sudo sysctl -w vm.max_map_count=1048576".into()),
+            fix_command: Some("cuvee setup-host".into()),
         },
         _ => Check {
             id: CheckId::MaxMapCount,
@@ -413,6 +437,7 @@ pub fn inspect() -> Report {
         session,
         reims_ctl,
         reims_util,
+        qemu,
     }
 }
 
@@ -427,6 +452,14 @@ mod tests {
         for id in CheckId::ALL {
             assert_eq!(r.checks.iter().filter(|c| c.id == id).count(), 1);
         }
+    }
+
+    #[test]
+    fn max_map_count_follows_memory() {
+        assert_eq!(max_map_count_for(8 * 1024 * 1024), 2_097_152);
+        assert_eq!(max_map_count_for(32 * 1024 * 1024), 8_388_608);
+        assert_eq!(max_map_count_for(128 * 1024 * 1024), 8_388_608);
+        assert_eq!(max_map_count_for(0), 2_097_152);
     }
 
     #[test]

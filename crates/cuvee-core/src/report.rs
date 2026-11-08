@@ -13,6 +13,7 @@
 //! SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::host::{self, GpuVendor, Level, Session};
+use crate::paths;
 use anyhow::{Context, Result};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -106,18 +107,23 @@ pub fn collect(vm: Option<&str>) -> String {
     )));
 
     section(&mut s, "Versions");
-    for cmd in [
-        &["reims-ctl", "--version"][..],
-        &["reims-util", "--version"],
-        &[host::QEMU_BIN, "--version"],
+    for (label, bin) in [
+        ("reims-ctl", paths::reims_ctl()),
+        ("reims-util", paths::reims_util()),
+        ("qemu", paths::qemu_binary()),
     ] {
-        let out = run(cmd);
-        let _ = writeln!(
-            s,
-            "{}: {}",
-            cmd[0],
-            out.lines().next().unwrap_or("not found").trim()
-        );
+        let line = match &bin {
+            Some(b) => {
+                let out = run(&[&b.to_string_lossy(), "--version"]);
+                format!(
+                    "{} ({})",
+                    out.lines().next().unwrap_or("?").trim(),
+                    b.display()
+                )
+            }
+            None => "not found".into(),
+        };
+        let _ = writeln!(s, "{label}: {line}");
     }
 
     section(&mut s, "Checks");
@@ -132,7 +138,7 @@ pub fn collect(vm: Option<&str>) -> String {
     }
     let _ = writeln!(s);
     let _ = writeln!(s, "reims-ctl doctor:");
-    s.push_str(&indent(&head(&run(&["reims-ctl", "doctor"]), MAX_LINES)));
+    s.push_str(&indent(&head(&reims_ctl(&["doctor"]), MAX_LINES)));
 
     section(&mut s, "VMs");
     match crate::vm::list() {
@@ -149,10 +155,7 @@ pub fn collect(vm: Option<&str>) -> String {
     if let Some(name) = vm {
         let _ = writeln!(s);
         let _ = writeln!(s, "reims-ctl report {name}:");
-        s.push_str(&indent(&head(
-            &run(&["reims-ctl", "report", name]),
-            MAX_LINES,
-        )));
+        s.push_str(&indent(&head(&reims_ctl(&["report", name]), MAX_LINES)));
     }
 
     redact(&s, &Identity::current())
@@ -234,12 +237,25 @@ fn module_loaded(modules: &str, name: &str) -> bool {
         .any(|l| l.split_whitespace().next() == Some(name))
 }
 
-/// How Cuvée got here: the native packages write /usr/lib/cuvee/packaged.
+/// How Cuvée got here: packages write /usr/lib/cuvee/packaged, cuvee install uses the home dir.
 fn installed_by() -> String {
-    match std::fs::read_to_string("/usr/lib/cuvee/packaged") {
-        Ok(s) => s.trim().to_string(),
-        Err(_) if Path::new(host::QEMU_BIN).exists() => "pacman or manual".into(),
-        Err(_) => "user install or not installed".into(),
+    match paths::packaged() {
+        Some(p) => p,
+        None if Path::new(paths::SYSTEM_LIB).join("qemu").is_dir() => "manual (system)".into(),
+        None if paths::user_runtime().is_some() => "cuvee install (user)".into(),
+        None => "not installed".into(),
+    }
+}
+
+/// Runs reims-ctl with this install's QEMU and reims-util; stdout and stderr together.
+fn reims_ctl(args: &[&str]) -> String {
+    match paths::reims_ctl_command().args(args).output() {
+        Ok(o) => {
+            let mut out = String::from_utf8_lossy(&o.stdout).into_owned();
+            out.push_str(&String::from_utf8_lossy(&o.stderr));
+            out
+        }
+        Err(_) => String::new(),
     }
 }
 

@@ -1,0 +1,5 @@
+# The reims-vgpu commit Cuvée's runtime is built from. Upstream is in beta and
+# changes fast: each release pins one, and the weekly CI job builds master.
+# reims-util and QEMU follow from it (reims-ctl pins reims-util; vendor/qemu is
+# a submodule).
+REIMS_VGPU_COMMIT=1fe0acb68b287db36f1e6c7b9f45383940b8a76f
