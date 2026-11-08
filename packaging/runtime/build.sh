@@ -110,7 +110,7 @@ if ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 12))'; then
   PY_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20241016/cpython-3.12.7+20241016-x86_64-unknown-linux-gnu-install_only.tar.gz"
   PY_SHA=43576f7db1033dd57b900307f09c2e86f371152ac8a2607133afa51cbfc36064
   if [[ ! -x $WORK/python/bin/python3 ]]; then
-    curl -fsSLo "$WORK/python.tar.gz" "$PY_URL"
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o "$WORK/python.tar.gz" "$PY_URL"
     echo "$PY_SHA  $WORK/python.tar.gz" | sha256sum -c --quiet
     tar -C "$WORK" -xzf "$WORK/python.tar.gz"
   fi

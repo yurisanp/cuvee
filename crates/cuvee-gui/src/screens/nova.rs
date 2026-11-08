@@ -424,6 +424,7 @@ fn step_review(app: &App) -> Element<'_, Message> {
         n.memory_gib,
         n.disk_gib,
         gpu.is_none(),
+        n.current_identity(),
     );
     let mut lines = vec![format!("$ {}", vm::display(&cmd))];
     if let Some(g) = gpu {
@@ -469,6 +470,8 @@ fn step_review(app: &App) -> Element<'_, Message> {
                 ]
                 .spacing(24),
                 widgets::hairline(),
+                identity(app, a),
+                widgets::hairline(),
                 theme::label(
                     app.t("nova-review-command"),
                     13.0,
@@ -489,5 +492,78 @@ fn step_review(app: &App) -> Element<'_, Message> {
         ),
     ]
     .spacing(36)
+    .into()
+}
+
+/// The Mac the VM will present, and a button to make another.
+fn identity(app: &App, a: f32) -> Element<'_, Message> {
+    let n = &app.nova;
+    let head = row![
+        theme::label(
+            app.t("nova-identity"),
+            13.0,
+            theme::with_alpha(theme::MUTED, a)
+        ),
+        iced::widget::space().width(Length::Fill),
+        button(theme::label(
+            app.t("nova-identity-again"),
+            13.0,
+            theme::with_alpha(theme::INK, a)
+        ))
+        .padding([0, 2])
+        .style(theme::ghost_bright)
+        .on_press_maybe((!n.identity_making && !n.busy).then_some(Message::NovaIdentityAgain)),
+    ]
+    .align_y(iced::Center);
+    let body: Element<'_, Message> = match (n.current_identity(), &n.identity_error) {
+        _ if n.identity_making => theme::label(
+            app.t("nova-identity-making"),
+            13.0,
+            theme::with_alpha(theme::SOFT, a),
+        )
+        .into(),
+        (Some(s), _) => {
+            let id = &s.identity;
+            let cell = |k: String, v: &str| {
+                container(
+                    column![
+                        theme::label(k, 12.0, theme::with_alpha(theme::MUTED, a)),
+                        theme::mono(v.to_string(), 13.0, theme::with_alpha(theme::INK, a)),
+                    ]
+                    .spacing(4),
+                )
+                .width(Length::Fill)
+            };
+            column![
+                row![
+                    cell(app.t("smbios-model"), &id.model),
+                    cell(app.t("smbios-serial"), &id.serial),
+                    cell("MLB".into(), &id.mlb),
+                ]
+                .spacing(24),
+                row![cell("UUID".into(), &id.uuid), cell("ROM".into(), &id.rom)].spacing(24),
+            ]
+            .spacing(12)
+            .into()
+        }
+        (None, Some(e)) => theme::label(
+            app.locale
+                .t_args("nova-identity-failed", &[("error", Locale::str(e))]),
+            13.0,
+            theme::with_alpha(theme::WARN, a),
+        )
+        .into(),
+        (None, None) => column![].into(),
+    };
+    column![
+        head,
+        body,
+        theme::label(
+            app.t("nova-identity-hint"),
+            13.0,
+            theme::with_alpha(theme::SOFT, a)
+        ),
+    ]
+    .spacing(12)
     .into()
 }

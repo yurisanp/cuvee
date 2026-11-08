@@ -26,11 +26,38 @@ pub enum Installer {
     OnlineOnly,
 }
 
-/// The default Mac model reims-util presents, per version.
+/// The Macs reims-util can present (its `--model`), each with the macOS versions it runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Model {
     IMac20_1,
     IMacPro1_1,
+}
+
+impl Model {
+    pub const ALL: [Model; 2] = [Model::IMac20_1, Model::IMacPro1_1];
+
+    /// Apple's identifier, as SMBIOS and reims-util write it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Model::IMac20_1 => "iMac20,1",
+            Model::IMacPro1_1 => "iMacPro1,1",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Model> {
+        Model::ALL
+            .into_iter()
+            .find(|m| m.name().eq_ignore_ascii_case(s.trim()))
+    }
+
+    /// Whether Apple ships `v` for this Mac: the iMac (2020) runs 10.15.6 to 26, the iMac Pro
+    /// (2017) 10.13 to 15. reims-util installs Catalina's last update, 10.15.7.
+    pub fn runs(self, v: Version) -> bool {
+        match self {
+            Model::IMac20_1 => !matches!(v, Version::Mojave | Version::HighSierra),
+            Model::IMacPro1_1 => v != Version::Tahoe,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -119,10 +146,24 @@ impl Version {
         }
     }
 
+    /// The Mac a VM of this version presents, as reims-ctl picks it.
     pub fn model(self) -> Model {
         match self {
             Version::Mojave | Version::HighSierra => Model::IMacPro1_1,
             _ => Model::IMac20_1,
+        }
+    }
+
+    /// The Mac a VM of this version presents, with a physical GPU passed to it or not. The
+    /// iMac20,1 expects Intel graphics beside its AMD card, for video decoding and DRM; a VM
+    /// with only a passed AMD or NVIDIA card is closer to the iMac Pro, which has no Intel
+    /// graphics, as Dortania's guide advises for desktops without one. macOS 26 dropped the
+    /// iMac Pro, and no GPU can be passed to it anyway.
+    pub fn model_for(self, passthrough: bool) -> Model {
+        if passthrough && Model::IMacPro1_1.runs(self) {
+            Model::IMacPro1_1
+        } else {
+            self.model()
         }
     }
 
@@ -299,6 +340,18 @@ mod tests {
         assert_eq!(Version::parse("big sur"), Some(Version::BigSur));
         assert_eq!(Version::parse("big-sur"), Some(Version::BigSur));
         assert_eq!(Version::parse("9"), None);
+    }
+
+    #[test]
+    fn every_version_gets_a_mac_that_runs_it() {
+        for v in Version::ALL {
+            assert!(v.model().runs(v), "{v:?}");
+            assert!(v.model_for(true).runs(v), "{v:?}");
+        }
+        assert_eq!(Version::Tahoe.model_for(true), Model::IMac20_1);
+        assert_eq!(Version::Sequoia.model_for(true), Model::IMacPro1_1);
+        assert_eq!(Version::Sequoia.model_for(false), Model::IMac20_1);
+        assert_eq!(Model::parse("imacpro1,1"), Some(Model::IMacPro1_1));
     }
 
     #[test]

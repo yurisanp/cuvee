@@ -38,3 +38,19 @@ pelo Terminal do Recovery, defina o `METAL_ERROR_MODE` como ele descreve.
 - **Mudar memória, núcleos ou resolução**: `cuvee set mac ...` com a VM
   desligada (`cuvee help set` mostra as opções).
 - As VMs ficam em `~/.local/share/reims-ctl/vms`.
+
+## Identidade do Mac (SMBIOS)
+
+Cada VM já nasce com um Mac próprio: modelo, número de série, MLB, UUID e
+ROM. Não é preciso rodar o GenSMBIOS nem o macserial: o reims-util gera os
+valores ao criar a VM, e o aplicativo mostra a identidade na revisão de "Nova
+máquina", com o botão **Gerar de novo**.
+
+- Ver a identidade de uma VM: `cuvee smbios show mac`.
+- Gerar outra (com a VM desligada): `cuvee smbios new mac`. O macOS passa a
+  ver outro Mac, então iCloud e iMessage pedem login de novo.
+- Só gerar uma identidade, sem VM: `cuvee smbios generate --macos sequoia`.
+
+Para conferir uma série em <https://checkcoverage.apple.com>, o resultado
+esperado é "não foi possível verificar a cobertura": a série não pertence a
+um Mac vendido pela Apple.

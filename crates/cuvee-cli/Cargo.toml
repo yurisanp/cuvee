@@ -13,4 +13,5 @@ path = "src/main.rs"
 [dependencies]
 cuvee-core = { path = "../cuvee-core" }
 anyhow.workspace = true
+serde_json.workspace = true
 clap = { version = "4", features = ["derive"] }
