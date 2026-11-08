@@ -39,7 +39,7 @@ done
 [ "$fail" = 0 ]
 
 # A second run changes nothing, and update sees the same release.
-cuvee install --from "$DIST" --yes --skip-host | grep -q 'Runtime local'
+cuvee install --from "$DIST" --yes --skip-host | grep 'Runtime local' >/dev/null
 cuvee update --from "$DIST" >/dev/null
 
 # doctor runs (it reports problems here: a container has no KVM).

@@ -75,7 +75,11 @@ else
   fetch "$base/SHA256SUMS" "$tmp/SHA256SUMS" || die "não deu para baixar $base/SHA256SUMS"
 fi
 
-want="$(awk -v f="$ASSET" '$2 == f || $2 == "*" f { print $1 }' "$tmp/SHA256SUMS")"
+# Plain sh, no awk: minimal systems (openSUSE's container) lack it.
+want=""
+while read -r hash name; do
+  case "$name" in "$ASSET" | "*$ASSET") want="$hash" ;; esac
+done <"$tmp/SHA256SUMS"
 [ -n "$want" ] || die "o SHA256SUMS da release não tem $ASSET"
 got="$(sha256 "$tmp/$ASSET")"
 [ "$got" = "$want" ] || die "SHA-256 de $ASSET não confere (veio $got, a release diz $want)"

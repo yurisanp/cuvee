@@ -160,19 +160,25 @@ fn install_deps(yes: bool) -> Result<()> {
     if missing.is_empty() {
         ui::ok(&ui::t("cli-deps-ok", &[]));
     } else {
+        let failed = |argv: &[String], e: anyhow::Error| {
+            anyhow::anyhow!(
+                "{}: {e:#}",
+                ui::t("cli-deps-failed", &[("command", Arg::S(&argv.join(" ")))])
+            )
+        };
+        // The lists first: in a fresh system they are empty, and the names are picked from them.
+        if let Some(argv) = distro::refresh_command(d.family) {
+            sys::run_root(&argv).map_err(|e| failed(&argv, e))?;
+        }
+        let pkgs = distro::resolve(d.family, &missing);
         ui::info(&ui::t(
             "cli-deps-missing",
-            &[("list", Arg::S(&missing.join(" ")))],
+            &[("list", Arg::S(&pkgs.join(" ")))],
         ));
         // Without a terminal the package manager cannot ask, so it is told yes.
         let yes = yes || !std::io::stdin().is_terminal();
-        for argv in distro::install_commands(d.family, &missing, yes) {
-            sys::run_root(&argv).map_err(|e| {
-                anyhow::anyhow!(
-                    "{}: {e:#}",
-                    ui::t("cli-deps-failed", &[("command", Arg::S(&argv.join(" ")))])
-                )
-            })?;
+        if let Some(argv) = distro::install_command(d.family, &pkgs, yes) {
+            sys::run_root(&argv).map_err(|e| failed(&argv, e))?;
         }
         ui::ok(&ui::t("cli-deps-ok", &[]));
     }

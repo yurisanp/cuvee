@@ -260,14 +260,22 @@ pub fn available(family: Family, pkg: &str) -> bool {
     }
 }
 
-/// The choices none of whose packages are installed, resolved to the package to install:
-/// the first choice the package manager knows, else the first.
-pub fn missing(family: Family, wanted: &[Vec<&'static str>]) -> Vec<&'static str> {
-    let mut out = Vec::new();
+/// The choices none of whose packages are installed.
+pub fn missing(family: Family, wanted: &[Vec<&'static str>]) -> Vec<Vec<&'static str>> {
+    let mut out: Vec<Vec<&'static str>> = Vec::new();
     for choices in wanted {
-        if choices.iter().any(|p| installed(family, p)) {
-            continue;
+        if !choices.iter().any(|p| installed(family, p)) && !out.contains(choices) {
+            out.push(choices.clone());
         }
+    }
+    out
+}
+
+/// The package to install for each choice: the first the package manager knows, else the
+/// first. Run it after [`refresh_command`], when the lists may be empty (a fresh container).
+pub fn resolve(family: Family, missing: &[Vec<&'static str>]) -> Vec<&'static str> {
+    let mut out = Vec::new();
+    for choices in missing {
         let pick = if choices.len() == 1 {
             choices[0]
         } else {
@@ -284,14 +292,33 @@ pub fn missing(family: Family, wanted: &[Vec<&'static str>]) -> Vec<&'static str
     out
 }
 
-/// The commands that refresh the package lists (apt only) and install `pkgs`, without
-/// `sudo` in front. `yes` answers the package manager's questions.
-pub fn install_commands(family: Family, pkgs: &[&str], yes: bool) -> Vec<Vec<String>> {
+/// The command that refreshes the package lists before installing, where one is needed,
+/// without `sudo` in front: apt always; pacman only when it has never synced (a fresh
+/// container), since `pacman -Sy` on a used system risks a partial upgrade.
+pub fn refresh_command(family: Family) -> Option<Vec<String>> {
+    let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect();
+    match family {
+        Family::Apt => Some(s(&["apt-get", "update"])),
+        Family::Pacman if !pacman_synced() => Some(s(&["pacman", "-Sy"])),
+        _ => None,
+    }
+}
+
+fn pacman_synced() -> bool {
+    std::fs::read_dir("/var/lib/pacman/sync")
+        .map(|d| {
+            d.flatten()
+                .any(|e| e.file_name().to_string_lossy().ends_with(".db"))
+        })
+        .unwrap_or(false)
+}
+
+/// The command that installs `pkgs`, without `sudo` in front. `yes` answers the package
+/// manager's questions. `None` for an unknown family.
+pub fn install_command(family: Family, pkgs: &[&str], yes: bool) -> Option<Vec<String>> {
     let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<String>>();
-    let mut cmds = Vec::new();
     let mut install = match family {
         Family::Apt => {
-            cmds.push(s(&["apt-get", "update"]));
             let mut c = s(&["apt-get", "install", "--no-install-recommends"]);
             if yes {
                 c.push("-y".into());
@@ -320,11 +347,10 @@ pub fn install_commands(family: Family, pkgs: &[&str], yes: bool) -> Vec<Vec<Str
             c.push("install".into());
             c
         }
-        Family::Unknown => return Vec::new(),
+        Family::Unknown => return None,
     };
     install.extend(pkgs.iter().map(|p| p.to_string()));
-    cmds.push(install);
-    cmds
+    Some(install)
 }
 
 /// Whether NVIDIA's Vulkan driver is installed (its ICD file).
@@ -394,16 +420,17 @@ mod tests {
 
     #[test]
     fn install_commands_per_family() {
-        let c = install_commands(Family::Apt, &["a"], true);
-        assert_eq!(c[0], ["apt-get", "update"]);
+        let c = install_command(Family::Apt, &["a"], true).unwrap();
         assert_eq!(
-            c[1],
+            c,
             ["apt-get", "install", "--no-install-recommends", "-y", "a"]
         );
-        let c = install_commands(Family::Zypper, &["a"], true);
-        assert_eq!(c[0], ["zypper", "--non-interactive", "install", "a"]);
-        let c = install_commands(Family::Pacman, &["a"], false);
-        assert_eq!(c[0], ["pacman", "-S", "--needed", "a"]);
-        assert!(install_commands(Family::Unknown, &["a"], true).is_empty());
+        assert_eq!(refresh_command(Family::Apt).unwrap(), ["apt-get", "update"]);
+        assert!(refresh_command(Family::Dnf).is_none());
+        let c = install_command(Family::Zypper, &["a"], true).unwrap();
+        assert_eq!(c, ["zypper", "--non-interactive", "install", "a"]);
+        let c = install_command(Family::Pacman, &["a"], false).unwrap();
+        assert_eq!(c, ["pacman", "-S", "--needed", "a"]);
+        assert!(install_command(Family::Unknown, &["a"], true).is_none());
     }
 }
