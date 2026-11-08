@@ -88,14 +88,29 @@ glibc_min() {
   done | sed 's/GLIBC_//' | sort -Vu | tail -1
 }
 
-# The Debian package that ships a soname, from apt-file's index.
+# The libraries every Debian package ships, from apt-file's Contents index:
+# "usr/lib/x86_64-linux-gnu/libasound.so.2 libs/libasound2". Read once, since
+# one apt-file search per library takes seconds.
+CONTENTS=''
+deb_contents() {
+  [[ -z $CONTENTS ]] || return 0
+  CONTENTS="$WORK/contents"
+  local lists
+  lists="$(find /var/lib/apt/lists -name '*Contents-amd64*' | sort)"
+  [[ -n $lists ]] || die "no apt-file index: run apt-file update"
+  # shellcheck disable=SC2086 # one path per line
+  /usr/lib/apt/apt-helper cat-file $lists |
+    grep -E '^(usr/)?lib(64|/x86_64-linux-gnu)/[^/[:space:]]+\.so[^/[:space:]]*[[:space:]]' >"$CONTENTS"
+}
+
+# The Debian package that ships a soname.
 deb_package() {
-  local re pkgs
-  re="/lib(64|/x86_64-linux-gnu)/${1//./\\.}\$"
-  pkgs="$(apt-file search -x -l "$re" 2>/dev/null | grep -Ev -- '-(dbg|dev)$|^lib32|^libx32' || true)"
-  [[ -n $pkgs ]] || return 1
-  # Several packages can ship the same file (libc6 and libc6-amd64 on some bases); the shortest wins.
-  awk '{ print length, $0 }' <<<"$pkgs" | sort -n | head -1 | cut -d' ' -f2-
+  deb_contents
+  awk -v so="$1" '
+    { n = split($1, p, "/"); if (p[n] != so) next
+      m = split($NF, pk, ","); for (i = 1; i <= m; i++) { sub(/.*\//, "", pk[i]); print pk[i] } }
+  ' "$CONTENTS" | grep -Ev -- '-(dbg|dev)$|^lib32|^libx32|^libc6-(amd64|x32|i386)$' |
+    awk '{ print length, $0 }' | sort -n | head -1 | cut -d' ' -f2- | grep .
 }
 
 # One "Depends" entry: renamed-by-t64 libraries accept both names.
@@ -151,6 +166,9 @@ GUI_DLOPEN=(
 )
 
 export CUVEE_VERSION="$VERSION" CUVEE_RELEASE="$RELEASE" STAGE REPO
+
+# Read the Contents index here, once: deb_package runs in subshells.
+[[ " ${FORMATS[*]} " != *" deb "* ]] || deb_contents
 
 VULKAN_DEB=$'mesa-vulkan-drivers\nvulkan-tools'
 VULKAN_RPM=$'(mesa-vulkan-drivers or libvulkan_radeon or libvulkan_intel)\nvulkan-tools'
