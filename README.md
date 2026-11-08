@@ -33,6 +33,9 @@ cd cuvee/packaging/reims-vgpu-git && makepkg -si   # demora: compila o QEMU e a 
 cd ../cuvee-git && makepkg -si
 ```
 
+Enquanto o PR #1 não for mesclado, os arquivos estão só no branch
+`arch-packaging`: use `_branch=arch-packaging makepkg -si` no segundo pacote.
+
 Instale também o driver Vulkan da sua GPU: `vulkan-radeon` (AMD),
 `vulkan-intel` (Intel) ou `nvidia-utils` (NVIDIA).
 
