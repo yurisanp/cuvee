@@ -6,6 +6,17 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
 
 ## Agora
 
+- [ ] Soltar a v0.2.0 (o PR #5 já está no main; as notas estão em
+  `.github/release-notes/v0.2.0.md`):
+  ```sh
+  cd /mnt/dados/Desenvolvimento/Linux/cuvee
+  git fetch origin main && git tag -a v0.2.0 -m "Cuvée v0.2.0" origin/main
+  git push origin v0.2.0
+  ```
+  A release sai assinada: cada arquivo ganha um `.minisig` ao lado.
+- [ ] Apagar as pastas de teste da v0.2:
+  `rm -rf /mnt/dados/Desenvolvimento/Linux/cuvee-v02-teste /tmp/cuvee-home.dpZZ`
+
 - [ ] Liberar ~10 GB de sobras de build (os dois `.pkg.tar.zst` ficam):
   ```sh
   cd /mnt/dados/Desenvolvimento/Linux/cuvee
@@ -13,7 +24,7 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
          packaging/cuvee-git/{src,pkg,cuvee}
   ```
 - [ ] Apagar os branches já mesclados no GitHub:
-  `git push origin --delete arch-packaging gui`
+  `git push origin --delete arch-packaging gui v1.0-support`
 - [x] Logar o GitHub CLI na sua máquina: `gh auth login`. Assim eu consigo
   acompanhar a CI e as releases daí.
 - [ ] Remover a cópia de teste da v0.4 quando o PR #4 for mesclado:
