@@ -8,8 +8,6 @@ use cuvee_core::host::GpuVendor;
 use std::path::Path;
 use std::process::ExitCode;
 
-/// vm.max_map_count on NVIDIA hosts (reims-vgpu's recommendation).
-pub const MAX_MAP_COUNT: u64 = 1_048_576;
 const MODULES_FILE: &str = "/etc/modules-load.d/cuvee.conf";
 const UDEV_FILE: &str = "/etc/udev/rules.d/70-cuvee-udmabuf.rules";
 const SYSCTL_FILE: &str = "/etc/sysctl.d/70-cuvee.conf";
@@ -115,17 +113,18 @@ pub fn apply() -> Result<Outcome> {
         .ok()
         .and_then(|s| s.trim().parse().ok())
         .unwrap_or(0);
-    if nvidia && maps < MAX_MAP_COUNT {
+    let want = cuvee_core::host::wanted_max_map_count();
+    if nvidia && maps < want {
         let r = sys::write_root(
             SYSCTL_FILE,
-            &format!("# Cuvée: reims-vgpu on NVIDIA.\nvm.max_map_count = {MAX_MAP_COUNT}\n"),
+            &format!("# Cuvée: reims-vgpu on NVIDIA.\nvm.max_map_count = {want}\n"),
         )
         .and_then(|()| {
             sys::run_root(&s(&[
                 "sysctl",
                 "-q",
                 "-w",
-                &format!("vm.max_map_count={MAX_MAP_COUNT}"),
+                &format!("vm.max_map_count={want}"),
             ]))
         });
         match r {
@@ -133,7 +132,7 @@ pub fn apply() -> Result<Outcome> {
                 ui::ok(&ui::t(
                     "cli-setup-sysctl",
                     &[
-                        ("value", Arg::S(&MAX_MAP_COUNT.to_string())),
+                        ("value", Arg::S(&want.to_string())),
                         ("path", Arg::S(SYSCTL_FILE)),
                     ],
                 ));

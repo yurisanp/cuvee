@@ -201,6 +201,33 @@ fn max_map_count() -> Option<u64> {
         .ok()
 }
 
+/// The vm.max_map_count a new VM needs on NVIDIA so the GPU maps its memory without copies,
+/// as reims-ctl and upstream's install script work it out: a new VM gets half the host's
+/// memory (4 to 16 GiB), a mapping per 4 KiB page plus 24,576 spare, rounded up to a power
+/// of two from 1,048,576.
+pub fn wanted_max_map_count() -> u64 {
+    let mem_kib = std::fs::read_to_string("/proc/meminfo")
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with("MemTotal:"))
+                .and_then(|l| l.split_whitespace().nth(1))
+                .and_then(|v| v.parse::<u64>().ok())
+        })
+        .unwrap_or(0);
+    max_map_count_for(mem_kib)
+}
+
+fn max_map_count_for(mem_kib: u64) -> u64 {
+    let vm_mib = (mem_kib / 2 / 1_048_576 * 1024).clamp(4096, 16384);
+    let want = vm_mib * 256 + 24_576;
+    let mut raise = 1_048_576;
+    while raise < want {
+        raise *= 2;
+    }
+    raise
+}
+
 /// Free bytes on the file system that holds the user's data directory.
 fn free_bytes(path: &Path) -> Option<u64> {
     // `df` keeps this free of libc bindings; the number is only advisory.
@@ -336,14 +363,15 @@ pub fn inspect() -> Report {
         }
     });
 
-    // Only NVIDIA pays for a low vm.max_map_count (reims-vgpu docs); 1048576 is a safe value.
+    // Only NVIDIA pays for a low vm.max_map_count (reims-vgpu docs).
     let nvidia = gpus.contains(&GpuVendor::Nvidia);
+    let want = wanted_max_map_count();
     checks.push(match max_map_count() {
-        Some(n) if nvidia && n < 1_048_576 => Check {
+        Some(n) if nvidia && n < want => Check {
             id: CheckId::MaxMapCount,
             level: Level::Warn,
             advice_key: Some("advice-max-map-count"),
-            fix_command: Some("sudo sysctl -w vm.max_map_count=1048576".into()),
+            fix_command: Some("cuvee setup-host".into()),
         },
         _ => Check {
             id: CheckId::MaxMapCount,
@@ -424,6 +452,14 @@ mod tests {
         for id in CheckId::ALL {
             assert_eq!(r.checks.iter().filter(|c| c.id == id).count(), 1);
         }
+    }
+
+    #[test]
+    fn max_map_count_follows_memory() {
+        assert_eq!(max_map_count_for(8 * 1024 * 1024), 2_097_152);
+        assert_eq!(max_map_count_for(32 * 1024 * 1024), 8_388_608);
+        assert_eq!(max_map_count_for(128 * 1024 * 1024), 8_388_608);
+        assert_eq!(max_map_count_for(0), 2_097_152);
     }
 
     #[test]
