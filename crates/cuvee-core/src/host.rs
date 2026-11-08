@@ -3,9 +3,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Where the packaged QEMU lives (the `reims-vgpu-git` package puts it there).
-pub const QEMU_BIN: &str = "/usr/lib/cuvee/qemu/bin/qemu-system-x86_64";
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GpuVendor {
     Amd,
@@ -99,6 +96,7 @@ pub struct Report {
     pub session: Session,
     pub reims_ctl: Option<PathBuf>,
     pub reims_util: Option<PathBuf>,
+    pub qemu: Option<PathBuf>,
 }
 
 impl Report {
@@ -172,12 +170,7 @@ pub fn session() -> Session {
     }
 }
 
-fn which(bin: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path)
-        .map(|d| d.join(bin))
-        .find(|p| p.is_file())
-}
+use crate::paths::which;
 
 fn cpu_has_virt() -> bool {
     std::fs::read_to_string("/proc/cpuinfo")
@@ -235,8 +228,9 @@ fn data_dir() -> PathBuf {
 pub fn inspect() -> Report {
     let gpus = gpu_vendors();
     let session = session();
-    let reims_ctl = which("reims-ctl");
-    let reims_util = which("reims-util");
+    let reims_ctl = crate::paths::reims_ctl();
+    let reims_util = crate::paths::reims_util();
+    let qemu = crate::paths::qemu_binary().filter(|q| q.is_file());
     let mut checks = Vec::with_capacity(CheckId::ALL.len());
 
     checks.push(if cpu_has_virt() {
@@ -279,7 +273,7 @@ pub fn inspect() -> Report {
     });
 
     checks.push(
-        if reims_ctl.is_some() && reims_util.is_some() && Path::new(QEMU_BIN).exists() {
+        if reims_ctl.is_some() && reims_util.is_some() && qemu.is_some() {
             Check {
                 id: CheckId::ReimsTools,
                 level: Level::Ok,
@@ -291,7 +285,9 @@ pub fn inspect() -> Report {
                 id: CheckId::ReimsTools,
                 level: Level::Bad,
                 advice_key: Some("advice-reims-tools"),
-                fix_command: None,
+                fix_command: crate::paths::packaged()
+                    .is_none()
+                    .then(|| "cuvee install".into()),
             }
         },
     );
@@ -413,6 +409,7 @@ pub fn inspect() -> Report {
         session,
         reims_ctl,
         reims_util,
+        qemu,
     }
 }
 

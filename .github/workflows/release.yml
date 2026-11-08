@@ -8,19 +8,38 @@ permissions:
   contents: write
 
 jobs:
-  app:
-    runs-on: ubuntu-22.04
+  build:
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Toolchain
-        run: rustup update stable && rustup default stable
-      - name: Build cuvee-gui
-        run: cargo build --release -p cuvee-gui
-      - name: Pack
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Sign
+        # Assina cada arquivo com minisign quando a chave existe (ver PENDENCIAS.md).
+        env:
+          MINISIGN_KEY: ${{ secrets.MINISIGN_KEY }}
         run: |
-          mkdir -p dist
-          cp target/release/cuvee-gui dist/cuvee-gui-${GITHUB_REF_NAME}-x86_64-linux
-          cd dist && sha256sum * > SHA256SUMS
+          if [[ -z $MINISIGN_KEY ]]; then
+            echo "::warning::MINISIGN_KEY não configurado: release sem assinatura"
+            exit 0
+          fi
+          sudo apt-get install -y -qq minisign
+          umask 077
+          printf '%s\n' "$MINISIGN_KEY" > "$RUNNER_TEMP/cuvee.key"
+          for f in dist/*; do
+            [[ $f == *.minisig ]] && continue
+            minisign -S -s "$RUNNER_TEMP/cuvee.key" -m "$f" -t "Cuvée $GITHUB_REF_NAME $(basename "$f")"
+          done
+          rm -f "$RUNNER_TEMP/cuvee.key"
+          if [[ -f cuvee.pub ]]; then
+            for f in dist/*.minisig; do minisign -Vm "${f%.minisig}" -p cuvee.pub; done
+          fi
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
