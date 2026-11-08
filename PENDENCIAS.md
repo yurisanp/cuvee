@@ -16,6 +16,11 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
   `git push origin --delete arch-packaging gui`
 - [x] Logar o GitHub CLI na sua máquina: `gh auth login`. Assim eu consigo
   acompanhar a CI e as releases daí.
+- [ ] Remover a cópia de teste da v0.4 quando o PR #4 for mesclado:
+  ```sh
+  cd /mnt/dados/Desenvolvimento/Linux/cuvee
+  git worktree remove ../cuvee-pt-test && rm -rf ~/.cache/cuvee-pt-*
+  ```
 - [ ] Permitir que eu envie tags de release pela sua máquina. No Claude Code do
   computador, adicione regras de permissão para `git tag -a v*` e
   `git push origin v*`. Sem isso, cada release depende de você rodar os dois
@@ -51,6 +56,21 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
   segura é uma AMD Polaris (RX 570 ou RX 580).
 - [ ] Ligar IOMMU na BIOS (VT-d na Intel, AMD-Vi/SVM na AMD) e, se o
   `cuvee doctor` pedir, os parâmetros de kernel que ele indicar.
+- [ ] Com a segunda GPU instalada e o monitor do Linux na outra GPU (marque-a
+  como primária na BIOS), rodar e me mandar a saída de:
+  `cuvee passthrough list --macos sequoia`
+- [ ] Rodar `cuvee passthrough setup-host <endereço da GPU>` (pede sudo; grava
+  modprobe.d, initramfs, udev e limites) e reiniciar. Em CPU Intel, acrescentar
+  `intel_iommu=on iommu=pt` à linha de boot do seu boot loader; o `list` mostra
+  o que ainda falta.
+- [ ] Criar uma VM com o macOS 15 Sequoia, rodar
+  `cuvee passthrough attach <vm> <endereço da GPU>`, instalar e confirmar
+  "Metal" em Sobre este Mac > Relatório do Sistema > Gráficos. Esse é o
+  critério de pronto da v0.4.
+- [ ] Opcional: com uma NVIDIA Kepler (GT 710, GTX 770), testar
+  `cuvee passthrough oclp` e o Post-Install Root Patch do OCLP no Sonoma ou
+  Sequoia.
+- [ ] Abrir o app e conferir a escolha de GPU no passo Hardware de Nova máquina.
 
 ## Antes da v1.0
 
