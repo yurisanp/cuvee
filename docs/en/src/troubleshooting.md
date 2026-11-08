@@ -49,6 +49,12 @@ The `Devices` list must show your real GPU, not only `llvmpipe` (software
 rendering). On laptops with two GPUs both show up; `cuvee gpus` shows which
 ones a VM can use.
 
+The check finds the driver by the file the Vulkan loader reads (in
+`/usr/share/vulkan/icd.d` or `/etc/vulkan/icd.d`, such as `nvidia_icd.json`),
+not by the package name. If it says the driver is installed but `vulkaninfo`
+did not find the GPU, restart after a driver update: the kernel module and the
+libraries must be the same version.
+
 ## NVIDIA: VM slow or freezing at high resolutions
 
 On NVIDIA, reims-vgpu needs a high `vm.max_map_count`. `cuvee setup-host`

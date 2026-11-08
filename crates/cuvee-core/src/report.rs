@@ -100,11 +100,33 @@ pub fn collect(vm: Option<&str>) -> String {
         let _ = writeln!(s, "gpu: {gpu}");
     }
     let _ = writeln!(s);
-    let _ = writeln!(s, "vulkaninfo --summary:");
-    s.push_str(&indent(&head(
-        &run(&["vulkaninfo", "--summary"]),
-        MAX_LINES,
-    )));
+    let icds = crate::vulkan::icds();
+    if icds.is_empty() {
+        let _ = writeln!(s, "vulkan drivers: none found");
+    }
+    for i in &icds {
+        let _ = writeln!(
+            s,
+            "vulkan driver: {} -> {} ({:?})",
+            i.path.display(),
+            i.library,
+            i.vendor()
+        );
+    }
+    let _ = writeln!(s);
+    let _ = writeln!(
+        s,
+        "vulkaninfo --summary (without DISPLAY and WAYLAND_DISPLAY):"
+    );
+    let summary = crate::vulkan::summary_command()
+        .and_then(|mut c| c.output().ok())
+        .map(|o| {
+            let mut out = String::from_utf8_lossy(&o.stdout).into_owned();
+            out.push_str(&String::from_utf8_lossy(&o.stderr));
+            out
+        })
+        .unwrap_or_default();
+    s.push_str(&indent(&head(&summary, MAX_LINES)));
 
     section(&mut s, "Versions");
     for (label, bin) in [

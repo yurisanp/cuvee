@@ -182,8 +182,8 @@ fn install_deps(yes: bool) -> Result<()> {
         }
         ui::ok(&ui::t("cli-deps-ok", &[]));
     }
-    if gpus.contains(&GpuVendor::Nvidia) && !distro::nvidia_vulkan_installed() {
-        ui::warn(&ui::t("cli-nvidia-driver", &[]));
+    if gpus.contains(&GpuVendor::Nvidia) && !cuvee_core::vulkan::has_driver(GpuVendor::Nvidia) {
+        ui::warn(&ui::t(cuvee_core::host::nvidia_advice(d.family), &[]));
     }
     Ok(())
 }

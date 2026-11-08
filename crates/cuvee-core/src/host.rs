@@ -170,8 +170,6 @@ pub fn session() -> Session {
     }
 }
 
-use crate::paths::which;
-
 fn cpu_has_virt() -> bool {
     std::fs::read_to_string("/proc/cpuinfo")
         .map(|s| {
@@ -182,15 +180,58 @@ fn cpu_has_virt() -> bool {
         .unwrap_or(false)
 }
 
-fn vulkan_works() -> Option<bool> {
-    let bin = which("vulkaninfo")?;
-    Some(
-        Command::new(bin)
-            .arg("--summary")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false),
-    )
+/// The Vulkan check, from the GPUs, the vendors whose driver is installed and what
+/// `vulkaninfo` said (None: not installed). `family` picks the NVIDIA package to name.
+pub fn vulkan_check(
+    gpus: &[GpuVendor],
+    drivers: &[GpuVendor],
+    probe: Option<crate::vulkan::Probe>,
+    family: crate::distro::Family,
+) -> Check {
+    use crate::vulkan::Probe;
+    let check = |level, advice_key| Check {
+        id: CheckId::Vulkan,
+        level,
+        advice_key,
+        fix_command: None,
+    };
+    if probe == Some(Probe::Gpu) {
+        return check(Level::Ok, None);
+    }
+    let known: Vec<GpuVendor> = gpus
+        .iter()
+        .copied()
+        .filter(|g| *g != GpuVendor::Other)
+        .collect();
+    let any_driver = if known.is_empty() {
+        !drivers.is_empty()
+    } else {
+        known.iter().any(|g| drivers.contains(g))
+    };
+    if !any_driver {
+        let key = if known.contains(&GpuVendor::Nvidia) {
+            nvidia_advice(family)
+        } else {
+            "advice-vulkan-missing"
+        };
+        return check(Level::Bad, Some(key));
+    }
+    match probe {
+        None => check(Level::Warn, Some("advice-vulkan-untested")),
+        _ => check(Level::Bad, Some("advice-vulkan-broken")),
+    }
+}
+
+/// The Fluent id that names the NVIDIA driver package of `family`.
+pub fn nvidia_advice(family: crate::distro::Family) -> &'static str {
+    use crate::distro::Family;
+    match family {
+        Family::Pacman => "advice-vulkan-nvidia-pacman",
+        Family::Apt => "advice-vulkan-nvidia-apt",
+        Family::Dnf => "advice-vulkan-nvidia-dnf",
+        Family::Zypper => "advice-vulkan-nvidia-zypper",
+        Family::Unknown => "advice-vulkan-nvidia",
+    }
 }
 
 fn max_map_count() -> Option<u64> {
@@ -319,26 +360,13 @@ pub fn inspect() -> Report {
         },
     );
 
-    checks.push(match vulkan_works() {
-        Some(true) => Check {
-            id: CheckId::Vulkan,
-            level: Level::Ok,
-            advice_key: None,
-            fix_command: None,
-        },
-        Some(false) => Check {
-            id: CheckId::Vulkan,
-            level: Level::Bad,
-            advice_key: Some("advice-vulkan-broken"),
-            fix_command: None,
-        },
-        None => Check {
-            id: CheckId::Vulkan,
-            level: Level::Warn,
-            advice_key: Some("advice-vulkan-untested"),
-            fix_command: None,
-        },
-    });
+    let drivers: Vec<GpuVendor> = crate::vulkan::icds().iter().map(|i| i.vendor()).collect();
+    checks.push(vulkan_check(
+        &gpus,
+        &drivers,
+        crate::vulkan::probe(),
+        crate::distro::Distro::detect().family,
+    ));
 
     checks.push(if !Path::new("/dev/udmabuf").exists() {
         Check {
@@ -444,6 +472,53 @@ pub fn inspect() -> Report {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn vulkan_check_trusts_the_driver_manifest() {
+        use crate::distro::Family;
+        use crate::vulkan::Probe;
+        let nv = [GpuVendor::Nvidia];
+        let c = |gpus: &[GpuVendor], drivers: &[GpuVendor], probe| {
+            let c = vulkan_check(gpus, drivers, probe, Family::Pacman);
+            (c.level, c.advice_key)
+        };
+        assert_eq!(c(&nv, &nv, Some(Probe::Gpu)), (Level::Ok, None));
+        // No manifest: the distro's NVIDIA package is named.
+        assert_eq!(
+            c(&nv, &[], Some(Probe::NoGpu)),
+            (Level::Bad, Some("advice-vulkan-nvidia-pacman"))
+        );
+        assert_eq!(
+            c(&nv, &[], None),
+            (Level::Bad, Some("advice-vulkan-nvidia-pacman"))
+        );
+        // Driver installed but vulkaninfo failed: not "install nvidia-utils".
+        assert_eq!(
+            c(&nv, &nv, Some(Probe::NoGpu)),
+            (Level::Bad, Some("advice-vulkan-broken"))
+        );
+        assert_eq!(
+            c(&nv, &nv, None),
+            (Level::Warn, Some("advice-vulkan-untested"))
+        );
+        // A laptop's NVIDIA driver is enough even if the iGPU has none.
+        assert_eq!(
+            c(&[GpuVendor::Intel, GpuVendor::Nvidia], &nv, None).1,
+            Some("advice-vulkan-untested")
+        );
+        assert_eq!(
+            c(&[GpuVendor::Amd], &[GpuVendor::Other], None),
+            (Level::Bad, Some("advice-vulkan-missing"))
+        );
+        for (f, k) in [
+            (Family::Apt, "advice-vulkan-nvidia-apt"),
+            (Family::Dnf, "advice-vulkan-nvidia-dnf"),
+            (Family::Zypper, "advice-vulkan-nvidia-zypper"),
+            (Family::Unknown, "advice-vulkan-nvidia"),
+        ] {
+            assert_eq!(vulkan_check(&nv, &[], None, f).advice_key, Some(k));
+        }
+    }
 
     #[test]
     fn every_check_is_reported_once() {

@@ -12,6 +12,7 @@
 //! - [`passthrough`]: GPU passthrough (VFIO) for macOS 10.13 to 15: GPUs, IOMMU, host setup.
 //! - [`smbios`]: the Mac a VM presents (model, serial, MLB, UUID, ROM), made by reims-util.
 //! - [`opencore`]: reading and editing the config.plist in a VM's OpenCore image.
+//! - [`vulkan`]: the Vulkan drivers installed (ICD manifests) and a `vulkaninfo` probe.
 //! - [`settings`]: the app's own settings (language, reduced motion) in the XDG config dir.
 //!
 //! SPDX-License-Identifier: GPL-3.0-or-later
@@ -29,3 +30,4 @@ pub mod settings;
 pub mod signature;
 pub mod smbios;
 pub mod vm;
+pub mod vulkan;

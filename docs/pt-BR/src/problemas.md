@@ -51,6 +51,12 @@ A lista de `Devices` precisa mostrar a sua GPU de verdade, e não só o
 `llvmpipe` (renderização por software). Em notebooks com duas GPUs, as duas
 aparecem; `cuvee gpus` mostra qual delas a VM pode usar.
 
+O diagnóstico acha o driver pelo arquivo que o carregador do Vulkan usa (em
+`/usr/share/vulkan/icd.d` ou `/etc/vulkan/icd.d`, como `nvidia_icd.json`), e
+não pelo nome do pacote. Se ele diz que o driver está instalado mas o
+`vulkaninfo` não achou a GPU, reinicie depois de atualizar o driver: o módulo
+do kernel e as bibliotecas precisam ser da mesma versão.
+
 ## NVIDIA: VM lenta ou travando em resolução alta
 
 Com GPU NVIDIA, o reims-vgpu precisa de um `vm.max_map_count` alto. O
