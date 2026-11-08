@@ -142,6 +142,10 @@ Q="$WORK/stage$PREFIX"
 [[ -x $Q/bin/qemu-system-x86_64 ]] || { echo "QEMU's install has no qemu-system-x86_64" >&2; exit 1; }
 find "$Q" -name ReimsVgpu.rom -type f | grep -q . || { echo "QEMU's install has no ReimsVgpu.rom" >&2; exit 1; }
 
+# The library's build is done (QEMU linked it statically): free its gigabytes
+# before the next builds, which a CI runner's disk needs.
+rm -rf "$WORK/qemu-build" "$CARGO_TARGET_DIR"
+
 say "Building reims-ctl"
 cd "$WORK/reims-vgpu/crates/reims-ctl"
 cargo build --release --locked
