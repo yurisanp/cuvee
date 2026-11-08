@@ -95,6 +95,8 @@ diag-rerun = Check again
 diag-sudo-note = The command asks for your administrator password.
 diag-ok = ok
 diag-needs-fix = needs a fix
+diag-report = Make a bug report
+diag-report-saved = Report saved to { $path }. Attach it to the GitHub issue.
 
 check-cpu-virt = CPU virtualization
 check-kvm = Access to /dev/kvm

@@ -95,6 +95,8 @@ diag-rerun = Verificar de novo
 diag-sudo-note = O comando pede sua senha de administrador.
 diag-ok = ok
 diag-needs-fix = precisa de ajuste
+diag-report = Gerar relatório para relatar um bug
+diag-report-saved = Relatório salvo em { $path }. Anexe-o à issue no GitHub.
 
 check-cpu-virt = Virtualização na CPU
 check-kvm = Acesso ao /dev/kvm
