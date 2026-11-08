@@ -69,6 +69,12 @@ prepare() {
 
 build() {
   export CARGO_TARGET_DIR="$srcdir/target"
+  # Rust and C embed source paths (panic messages, debug info); map the build
+  # directory and the cargo registry away so the binaries do not reference $srcdir.
+  local cargo_home="${CARGO_HOME:-$HOME/.cargo}"
+  export RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$srcdir=/usr/src/$pkgname --remap-path-prefix=$cargo_home=/usr/src/cargo"
+  export CFLAGS="${CFLAGS:-} -ffile-prefix-map=$srcdir=/usr/src/$pkgname"
+  export CXXFLAGS="${CXXFLAGS:-} -ffile-prefix-map=$srcdir=/usr/src/$pkgname"
   local toolchain
   toolchain="$(cd "$srcdir/reims-vgpu" && rustup show active-toolchain | cut -d' ' -f1)"
 

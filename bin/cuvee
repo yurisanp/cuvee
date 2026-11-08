@@ -56,6 +56,12 @@ check_cpu() {
   else
     bad "sem acesso a /dev/kvm: rode cuvee setup-host (adiciona você ao grupo kvm)"
   fi
+  if [[ " $(gpu_vendors) " == *" nvidia "* ]] && (($(sysctl -n vm.max_map_count 2>/dev/null || echo 0) < MAX_MAP_COUNT)); then
+    echo "vm.max_map_count = $MAX_MAP_COUNT" | sudo tee /etc/sysctl.d/70-cuvee.conf >/dev/null
+    sudo sysctl -q -w vm.max_map_count="$MAX_MAP_COUNT"
+    ok "vm.max_map_count = $MAX_MAP_COUNT (NVIDIA; /etc/sysctl.d/70-cuvee.conf)"
+  fi
+
   if ! in_group "$USER" kvm; then
     warn "você não está no grupo kvm (necessário para VMs iniciadas por ssh)"
   fi
@@ -127,6 +133,18 @@ check_iommu() {
   fi
 }
 
+check_max_map_count() {
+  [[ " $(gpu_vendors) " == *" nvidia "* ]] || return 0
+  title "vm.max_map_count (NVIDIA)"
+  local cur
+  cur="$(sysctl -n vm.max_map_count 2>/dev/null || echo 0)"
+  if ((cur >= MAX_MAP_COUNT)); then
+    ok "vm.max_map_count = $cur"
+  else
+    warn "vm.max_map_count = $cur; o reims-ctl recomenda $MAX_MAP_COUNT em NVIDIA: rode cuvee setup-host"
+  fi
+}
+
 check_install() {
   title "Instalação"
   if [[ -x $QEMU_BIN ]]; then ok "QEMU com reims-vgpu em $LIBDIR/qemu"
@@ -146,6 +164,7 @@ cmd_doctor() {
   check_gpu
   check_session
   check_iommu
+  check_max_map_count
   check_install
   echo
   if ((PROBLEMS)); then
@@ -155,7 +174,11 @@ cmd_doctor() {
   fi
   if command -v reims-ctl >/dev/null 2>&1 && [[ -x $QEMU_BIN ]]; then
     title "Diagnóstico do reims-ctl"
-    run_reims_ctl doctor || true
+    # Não decide o código de saída: o reims-ctl acusa "no install record" porque
+    # o pacote não passou pelo scripts/install-ctl.sh; aqui quem atualiza é o pacman.
+    REIMS_CTL_QEMU="${REIMS_CTL_QEMU:-$QEMU_BIN}" reims-ctl doctor 2>&1 |
+      grep -v 'no install record' || true
+    echo "(\"checkout\" sem registro de instalação é esperado: o Cuvée é atualizado pelo pacman)"
   fi
   ((PROBLEMS == 0))
 }
@@ -179,6 +202,12 @@ cmd_setup_host() {
   fi
   sudo udevadm control --reload
   sudo udevadm trigger --subsystem-match=misc --action=change || true
+
+  if [[ " $(gpu_vendors) " == *" nvidia "* ]] && (($(sysctl -n vm.max_map_count 2>/dev/null || echo 0) < MAX_MAP_COUNT)); then
+    echo "vm.max_map_count = $MAX_MAP_COUNT" | sudo tee /etc/sysctl.d/70-cuvee.conf >/dev/null
+    sudo sysctl -q -w vm.max_map_count="$MAX_MAP_COUNT"
+    ok "vm.max_map_count = $MAX_MAP_COUNT (NVIDIA; /etc/sysctl.d/70-cuvee.conf)"
+  fi
 
   if ! in_group "$USER" kvm; then
     sudo usermod -aG kvm "$USER"
@@ -211,7 +240,7 @@ Cuvée $CUVEE_VERSION: VMs de macOS no Arch Linux, sobre o reims-ctl.
 Uso:
   cuvee                 abre o menu interativo
   cuvee doctor          verifica se o host está pronto
-  cuvee setup-host      prepara o host (KVM, udmabuf; pede sudo)
+  cuvee setup-host      prepara o host (KVM, udmabuf, sysctl em NVIDIA; pede sudo)
   cuvee create mac --macos tahoe --start
                         cria e liga uma VM com o macOS 26
   cuvee help-reims      todos os comandos do reims-ctl
