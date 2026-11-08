@@ -1,0 +1,15 @@
+[book]
+title = "Cuvée"
+description = "VMs de macOS no Linux, com aceleração gráfica"
+language = "pt-BR"
+src = "src"
+
+[build]
+build-dir = "../../site"
+create-missing = false
+
+[output.html]
+git-repository-url = "https://github.com/yurisanp/cuvee"
+edit-url-template = "https://github.com/yurisanp/cuvee/edit/main/docs/pt-BR/{path}"
+site-url = "/cuvee/"
+no-section-label = true

@@ -1,0 +1,50 @@
+name: Pages
+
+# The site at https://yurisanp.github.io/cuvee/: the docs (pt-BR at the root,
+# English under /en/) and the one-command installer at /install.sh.
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**", "install/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      MDBOOK_VERSION: "0.5.4"
+    steps:
+      - uses: actions/checkout@v4
+      - name: mdBook
+        run: |
+          curl -fsSL "https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz" |
+            tar -xz -C /usr/local/bin mdbook
+      - name: Build
+        run: |
+          mdbook build docs/pt-BR
+          mdbook build docs/en
+          if [[ -f install/install.sh ]]; then cp install/install.sh site/install.sh; fi
+          touch site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

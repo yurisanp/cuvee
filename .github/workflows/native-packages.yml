@@ -1,0 +1,112 @@
+name: Native packages
+
+# Builds the .deb and .rpm packages (cuvee and cuvee-runtime) from the
+# release's binaries and installs them on every supported distro.
+#
+# release.yml calls it after the cli, runtime and app jobs, with their
+# artifacts in this run. Run by hand (Actions > Native packages), it takes
+# the binaries of an existing release instead, to test the packaging
+# without rebuilding QEMU.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Package version, X.Y.Z"
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version, X.Y.Z"
+        type: string
+        required: true
+      from-release:
+        description: "Release tag to take the binaries from (e.g. v0.2.0)"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # The oldest supported base: apt-file there names the packages the .deb depends on.
+    container: ubuntu:22.04
+    env:
+      NFPM_VERSION: "2.48.0"
+    steps:
+      - name: Tools
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends apt-file binutils ca-certificates curl gettext-base git >/dev/null
+          apt-file update >/dev/null
+          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" |
+            tar -xz -C /usr/local/bin nfpm
+      - uses: actions/checkout@v4
+      - name: Binaries from this run
+        if: github.event_name != 'workflow_dispatch'
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/in
+          merge-multiple: true
+      - name: Binaries from release ${{ inputs.from-release }}
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ inputs.from-release }}
+        run: |
+          mkdir -p dist/in
+          for a in cuvee-x86_64-linux-musl cuvee-gui-x86_64-linux cuvee-runtime-x86_64-linux.tar.gz; do
+            curl -fsSL -o "dist/in/$a" "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/$a"
+          done
+      - name: Build
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          ls -la dist/in
+          packaging/native/build.sh --version "${VERSION#v}" \
+            --cli dist/in/cuvee-x86_64-linux-musl --gui dist/in/cuvee-gui-x86_64-linux \
+            --runtime dist/in/cuvee-runtime-x86_64-linux.tar.gz --out dist/packages
+          # Names without the version, so /releases/latest/download/<name> always works.
+          cd dist/packages
+          cp cuvee_*_amd64.deb cuvee_amd64.deb
+          cp cuvee-runtime_*_amd64.deb cuvee-runtime_amd64.deb
+          cp cuvee-[0-9]*.x86_64.rpm cuvee.x86_64.rpm
+          cp cuvee-runtime-[0-9]*.x86_64.rpm cuvee-runtime.x86_64.rpm
+          rm -f ./*[0-9]_amd64.deb ./*[0-9].x86_64.rpm
+          ls -la
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-packages
+          path: dist/packages/*
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - ubuntu:22.04
+          - ubuntu:24.04
+          - debian:12
+          - debian:13
+          - fedora:42
+          - fedora:43
+          - opensuse/tumbleweed
+    container: ${{ matrix.image }}
+    steps:
+      - name: Tools the actions need
+        run: |
+          if command -v apt-get >/dev/null; then apt-get update -qq && apt-get install -y -qq tar >/dev/null
+          elif command -v dnf >/dev/null; then dnf install -y -q tar findutils
+          else zypper --non-interactive -q install tar gzip findutils; fi
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-packages
+          path: pkgs
+      - name: Install, check and remove
+        run: ENGINE=none bash packaging/native/test-install.sh pkgs
