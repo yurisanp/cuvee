@@ -137,6 +137,10 @@ pub fn view(app: &App, index: usize) -> Element<'_, Message> {
             .padding([0, 2])
             .style(theme::ghost)
             .on_press(Message::Go(Screen::Painel)),
+        button(theme::label(app.t("maq-open"), 14.0, theme::MUTED))
+            .padding([0, 2])
+            .style(theme::ghost)
+            .on_press(Message::MaqOpen(vm.name.clone())),
         iced::widget::space().width(Length::Fill),
         button(theme::label(
             app.t("exec-is-this-normal"),

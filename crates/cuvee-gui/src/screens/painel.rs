@@ -130,6 +130,12 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .spacing(4)
             .width(Length::Fill),
             theme::mono(clock_text, 13.0, theme::with_alpha(theme::MUTED, a)),
+            button(container(icons::icon(icons::SLIDERS, 16.0, theme::INK)).center(Length::Fill),)
+                .width(Length::Fixed(48.0))
+                .height(Length::Fixed(48.0))
+                .padding(0)
+                .style(theme::round(false))
+                .on_press(Message::MaqOpen(vm.name.clone())),
             action,
         ]
         .spacing(24)
@@ -138,11 +144,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
         let row_button = button(row_body)
             .padding(0)
             .style(theme::row_hover)
-            .on_press(Message::Go(if running {
-                Screen::Execucao(i)
+            .on_press(if running {
+                Message::Go(Screen::Execucao(i))
             } else {
-                Screen::Painel
-            }));
+                Message::MaqOpen(vm.name.clone())
+            });
         list = list
             .push(widgets::risen(r, row_button))
             .push(widgets::hairline());

@@ -85,6 +85,9 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
   identidade da VM e o botão "Gerar de novo". Depois, bootar um macOS com a
   identidade trocada (`cuvee smbios new <VM>`) e ver se "Sobre este Mac" mostra
   o serial novo.
+- [ ] Editar e apagar máquinas: no painel, clicar numa VM desligada (ou no
+  botão de ajustes ao lado do play), mudar núcleos ou memória e salvar; abrir
+  "Mais opções"; gerar outra identidade; e apagar uma VM de teste.
 - [ ] Acesso a três GPUs para a matriz de testes: AMD, Intel e NVIDIA.
   Cada pessoa roda `cuvee report` e te manda o arquivo.
 - [ ] Em Settings > General > Features, ligar **Discussions** (o modelo de
