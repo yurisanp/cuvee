@@ -1,0 +1,27 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  app:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: rustup update stable && rustup default stable
+      - name: Build cuvee-gui
+        run: cargo build --release -p cuvee-gui
+      - name: Pack
+        run: |
+          mkdir -p dist
+          cp target/release/cuvee-gui dist/cuvee-gui-${GITHUB_REF_NAME}-x86_64-linux
+          cd dist && sha256sum * > SHA256SUMS
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/* --clobber

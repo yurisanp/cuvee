@@ -13,8 +13,7 @@ optdepends=('vulkan-tools: lets cuvee doctor test Vulkan')
 provides=(cuvee)
 conflicts=(cuvee)
 install=cuvee.install
-# Branch to build. Until PR #1 is merged, the files live only on arch-packaging:
-#   _branch=arch-packaging makepkg -si
+# Branch to build (override with _branch=... makepkg).
 _branch="${_branch:-main}"
 source=("cuvee::git+https://github.com/yurisanp/cuvee.git#branch=$_branch")
 sha256sums=(SKIP)
