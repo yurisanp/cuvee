@@ -31,9 +31,6 @@ contents:
   - dst: /usr/lib/cuvee
     type: dir
     packager: rpm
-  - dst: /usr/share/licenses/cuvee-runtime
-    type: dir
-    packager: rpm
   - src: ${STAGE}/runtime/qemu/
     dst: /usr/lib/cuvee/qemu/
     type: tree
