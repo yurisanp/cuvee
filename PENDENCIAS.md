@@ -81,6 +81,10 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
 
 ## Antes da v1.0
 
+- [ ] SMBIOS automático (PR #11): em Nova máquina, conferir na revisão a
+  identidade da VM e o botão "Gerar de novo". Depois, bootar um macOS com a
+  identidade trocada (`cuvee smbios new <VM>`) e ver se "Sobre este Mac" mostra
+  o serial novo.
 - [ ] Acesso a três GPUs para a matriz de testes: AMD, Intel e NVIDIA.
   Cada pessoa roda `cuvee report` e te manda o arquivo.
 - [ ] Em Settings > General > Features, ligar **Discussions** (o modelo de
