@@ -81,7 +81,8 @@ struct Raw {
 }
 
 impl Raw {
-    fn open(image: &Path, format: &str) -> Result<Raw> {
+    /// `shared` reads an image a running VM holds (qemu-img's `-U`): fine for reading only.
+    fn open(image: &Path, format: &str, shared: bool) -> Result<Raw> {
         if format != "qcow2" {
             return Ok(Raw {
                 path: image.to_path_buf(),
@@ -90,10 +91,12 @@ impl Raw {
         }
         let dir = image.parent().context("image has no directory")?;
         let path = dir.join(format!(".cuvee-opencore-{}.raw", std::process::id()));
-        run(Command::new(qemu_img())
-            .args(["convert", "-f", "qcow2", "-O", "raw"])
-            .arg(image)
-            .arg(&path))?;
+        let mut c = Command::new(qemu_img());
+        c.arg("convert");
+        if shared {
+            c.arg("-U");
+        }
+        run(c.args(["-f", "qcow2", "-O", "raw"]).arg(image).arg(&path))?;
         Ok(Raw { path, copy: true })
     }
 
@@ -138,9 +141,9 @@ impl Drop for Raw {
     }
 }
 
-/// The image's `EFI/OC/config.plist`. `format` is "qcow2" or "raw".
+/// The image's `EFI/OC/config.plist`. `format` is "qcow2" or "raw". The VM may be running.
 pub fn read_config(image: &Path, format: &str) -> Result<Vec<u8>> {
-    Raw::open(image, format)?.read_config()
+    Raw::open(image, format, true)?.read_config()
 }
 
 /// Rewrites the image's `config.plist` with what `change` makes of it. `change` returns None
@@ -151,7 +154,7 @@ pub fn edit_config(
     format: &str,
     change: impl FnOnce(&[u8]) -> Result<Option<Vec<u8>>>,
 ) -> Result<Option<PathBuf>> {
-    let raw = Raw::open(image, format)?;
+    let raw = Raw::open(image, format, false)?;
     let Some(new) = change(&raw.read_config()?)? else {
         return Ok(None);
     };
