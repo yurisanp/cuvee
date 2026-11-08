@@ -353,20 +353,6 @@ pub fn install_command(family: Family, pkgs: &[&str], yes: bool) -> Option<Vec<S
     Some(install)
 }
 
-/// Whether NVIDIA's Vulkan driver is installed (its ICD file).
-pub fn nvidia_vulkan_installed() -> bool {
-    ["/usr/share/vulkan/icd.d", "/etc/vulkan/icd.d"]
-        .iter()
-        .any(|d| {
-            std::fs::read_dir(d)
-                .map(|rd| {
-                    rd.flatten()
-                        .any(|e| e.file_name().to_string_lossy().starts_with("nvidia"))
-                })
-                .unwrap_or(false)
-        })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
