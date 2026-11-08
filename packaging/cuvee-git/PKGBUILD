@@ -23,8 +23,16 @@ pkgver() {
   printf 'r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
 }
 
+# cargo can come from rustup (reims-vgpu-git needs it) with no default toolchain set.
+if command -v rustup >/dev/null 2>&1; then
+  export RUSTUP_TOOLCHAIN=stable
+fi
+
 prepare() {
   cd cuvee
+  if command -v rustup >/dev/null 2>&1; then
+    rustup toolchain install stable --profile minimal
+  fi
   cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
 }
 

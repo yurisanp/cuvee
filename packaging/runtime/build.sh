@@ -102,6 +102,20 @@ cargo xtask dist --platform vulkan
 PC="$CARGO_TARGET_DIR/dist-vulkan/lib/pkgconfig"
 [[ -f $PC/reims-vgpu.pc ]] || { echo "cargo xtask dist wrote no reims-vgpu.pc" >&2; exit 1; }
 
+# QEMU's configure wants Python 3.12 or newer, which Ubuntu 22.04 lacks: a
+# standalone CPython (python-build-standalone), checked by its SHA-256.
+if ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 12))'; then
+  say "Fetching Python 3.12 for QEMU's build"
+  PY_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20241016/cpython-3.12.7+20241016-x86_64-unknown-linux-gnu-install_only.tar.gz"
+  PY_SHA=43576f7db1033dd57b900307f09c2e86f371152ac8a2607133afa51cbfc36064
+  if [[ ! -x $WORK/python/bin/python3 ]]; then
+    curl -fsSLo "$WORK/python.tar.gz" "$PY_URL"
+    echo "$PY_SHA  $WORK/python.tar.gz" | sha256sum -c --quiet
+    tar -C "$WORK" -xzf "$WORK/python.tar.gz"
+  fi
+  export PATH="$WORK/python/bin:$PATH"
+fi
+
 say "Configuring QEMU"
 PREFIX=/cuvee-qemu
 rm -rf "$WORK/qemu-build" "$WORK/stage"
@@ -113,6 +127,7 @@ cd "$WORK/qemu-build"
 # serves both), qcow2/zstd disks and qemu-img. Ubuntu 22.04's PipeWire is older
 # than QEMU's pipewire backend wants; pipewire-pulse covers it.
 PKG_CONFIG_PATH="$PC" "$WORK/reims-vgpu/vendor/qemu/configure" \
+  --python="$(command -v python3)" \
   --prefix="$PREFIX" \
   --target-list=x86_64-softmmu \
   --without-default-features \
