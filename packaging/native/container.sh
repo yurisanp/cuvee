@@ -16,6 +16,8 @@ ENGINE="${ENGINE:-$(command -v podman || command -v docker || true)}"
 user=()
 [[ $(basename "$ENGINE") == podman ]] || user=(--user 0:0)
 
+# The script runs inside the container, so its variables expand there.
+# shellcheck disable=SC2016
 exec "$ENGINE" run --rm "${user[@]}" -v "$REPO:/src" -w /src \
   -e NFPM_VERSION="$NFPM_VERSION" -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
   ubuntu:22.04 bash -euc '
