@@ -41,8 +41,10 @@ for b in /usr/lib/cuvee/qemu/bin/* /usr/bin/reims-ctl /usr/bin/reims-util /usr/b
   fi
 done
 /usr/lib/cuvee/qemu/bin/qemu-system-x86_64 --version | head -1
-/usr/lib/cuvee/qemu/bin/qemu-system-x86_64 -device help 2>/dev/null | grep -qi reims ||
-  { echo "QEMU has no Reims vGPU device"; fail=1; }
+# Reims vGPU drives QEMU's apple-gfx-pci device and ships its option ROM.
+/usr/lib/cuvee/qemu/bin/qemu-system-x86_64 -device help 2>/dev/null | grep -q '"apple-gfx-pci"' ||
+  { echo "QEMU has no apple-gfx-pci device"; fail=1; }
+find /usr/lib/cuvee/qemu -name ReimsVgpu.rom -type f | grep -q . || { echo "no ReimsVgpu.rom"; fail=1; }
 reims-ctl --version
 reims-util --version
 cuvee --version
