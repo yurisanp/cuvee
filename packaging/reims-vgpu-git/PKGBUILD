@@ -55,7 +55,9 @@ prepare() {
 
   # The toolchain rust-toolchain.toml pins.
   rustup toolchain install
-  cargo fetch --locked --target x86_64-unknown-linux-gnu
+  # Upstream's Cargo.lock can lag a commit behind (its install script builds
+  # without --locked too), so cargo may add entries here.
+  cargo fetch --target x86_64-unknown-linux-gnu
   cd "$srcdir/reims-util"
   cargo +"$(cd "$srcdir/reims-vgpu" && rustup show active-toolchain | cut -d' ' -f1)" \
     fetch --locked --target x86_64-unknown-linux-gnu
@@ -80,7 +82,7 @@ build() {
   ninja
 
   cd "$srcdir/reims-vgpu"
-  cargo build --release --locked --package reims-ctl
+  cargo build --release --package reims-ctl
 
   cd "$srcdir/reims-util"
   cargo +"$toolchain" build --release --locked
