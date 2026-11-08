@@ -1,6 +1,6 @@
 # Cuvée
 
-*[English version](../en/index.html)*
+*[English version](en/index.html)*
 
 O Cuvée roda **macOS em máquinas virtuais no Linux**, com aceleração gráfica,
 em cima do [reims-vgpu](https://github.com/steelbrain/reims-vgpu): uma GPU

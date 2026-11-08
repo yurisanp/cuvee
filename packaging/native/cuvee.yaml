@@ -18,6 +18,9 @@ description: |-
   and udev rule). It drives reims-ctl, which comes in cuvee-runtime.
 
 contents:
+  - dst: /usr/share/licenses/cuvee
+    type: dir
+    packager: rpm
   - src: ${STAGE}/cuvee
     dst: /usr/bin/cuvee
     file_info: {mode: 0755}
