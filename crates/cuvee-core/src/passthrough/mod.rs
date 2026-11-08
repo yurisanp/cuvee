@@ -700,6 +700,48 @@ pub fn detach_command(name: &str, existing: &[String]) -> std::process::Command 
     c
 }
 
+/// After `reims-ctl create NAME`: gives the VM the card and, for a GPU macOS dropped, sets its
+/// OpenCore up for OCLP. The VM must be off.
+pub fn finish_create(name: &str, version: Version, gpu: &Gpu) -> anyhow::Result<()> {
+    use anyhow::Context;
+    let vm = crate::vm::list()?
+        .into_iter()
+        .find(|v| v.name == name)
+        .with_context(|| format!("reims-ctl has no VM named {name}"))?;
+    let files = read_vm_files(&vm.dir)?;
+    let mut c = attach_command(name, gpu, &files.extra_args);
+    let out = c.output().context("run reims-ctl set")?;
+    anyhow::ensure!(
+        out.status.success(),
+        "reims-ctl set failed: {}",
+        String::from_utf8_lossy(&out.stderr).trim()
+    );
+    if gpu.family.support(version) == Support::OclpRootPatch {
+        let image = files
+            .opencore
+            .context("vm.toml names no OpenCore image ([q35] opencore)")?;
+        oclp::prepare(&image, &files.opencore_format, version)?;
+    }
+    Ok(())
+}
+
+/// What [`finish_create`] does, as the commands a person would type.
+pub fn finish_create_commands(name: &str, version: Version, gpu: &Gpu) -> Vec<String> {
+    let mut c = vec![format!(
+        "cuvee passthrough attach {} {}",
+        sh_quote(name),
+        gpu.primary.slot().trim_start_matches("0000:")
+    )];
+    if gpu.family.support(version) == Support::OclpRootPatch {
+        c.push(format!(
+            "cuvee passthrough oclp {} --macos {}",
+            sh_quote(name),
+            version.slug()
+        ));
+    }
+    c
+}
+
 /// The host's GPUs, with what it takes to pass each, for `version` and `memory_gib`.
 pub fn survey(version: Version, memory_gib: u32) -> (HostState, Vec<(Gpu, Assessment)>) {
     let sys = Path::new(SYSFS);
