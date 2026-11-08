@@ -44,7 +44,9 @@ done
 # Reims vGPU drives QEMU's apple-gfx-pci device and ships its option ROM.
 /usr/lib/cuvee/qemu/bin/qemu-system-x86_64 -device help 2>/dev/null | grep -q '"apple-gfx-pci"' ||
   { echo "QEMU has no apple-gfx-pci device"; fail=1; }
-find /usr/lib/cuvee/qemu -name ReimsVgpu.rom -type f | grep -q . || { echo "no ReimsVgpu.rom"; fail=1; }
+shopt -s globstar nullglob
+roms=(/usr/lib/cuvee/qemu/**/ReimsVgpu.rom)
+((${#roms[@]})) || { echo "no ReimsVgpu.rom"; fail=1; }
 reims-ctl --version
 reims-util --version
 cuvee --version
@@ -56,7 +58,7 @@ getent group kvm >/dev/null
 if command -v apt-get >/dev/null; then apt-get remove -y -qq cuvee cuvee-runtime >/dev/null
 elif command -v dnf >/dev/null; then dnf remove -y -q cuvee cuvee-runtime >/dev/null
 else zypper --non-interactive -q remove cuvee cuvee-runtime >/dev/null; fi
-if [[ -e /usr/lib/cuvee || -e /usr/bin/cuvee ]]; then echo "files left after removal:"; find /usr/lib/cuvee /usr/bin/cuvee 2>/dev/null | head; fail=1; fi
+if [[ -e /usr/lib/cuvee || -e /usr/bin/cuvee ]]; then echo "files left after removal:"; ls -R /usr/lib/cuvee /usr/bin/cuvee 2>/dev/null | head; fail=1; fi
 ((fail == 0)) && echo "ok: $PRETTY_NAME"
 exit "$fail"
 SH
