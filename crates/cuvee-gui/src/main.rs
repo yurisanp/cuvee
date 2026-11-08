@@ -44,6 +44,8 @@ pub enum Screen {
     Ajustes,
     /// A running VM, by its index in `vms`.
     Execucao(usize),
+    /// One VM's settings, identity and deletion: the VM in `App::maquina`.
+    Maquina,
 }
 
 impl Screen {
@@ -51,8 +53,10 @@ impl Screen {
     pub fn same_section(self, other: Screen) -> bool {
         matches!(
             (self, other),
-            (Screen::Painel, Screen::Painel | Screen::Execucao(_))
-                | (Screen::Execucao(_), Screen::Painel | Screen::Execucao(_))
+            (
+                Screen::Painel | Screen::Execucao(_) | Screen::Maquina,
+                Screen::Painel | Screen::Execucao(_) | Screen::Maquina
+            )
         ) || self == other
     }
 }
@@ -103,6 +107,25 @@ pub struct Exec {
     pub stopping: bool,
 }
 
+/// The "Máquina" screen: one VM's settings as read, as edited, and what is under way.
+#[derive(Debug, Clone, Default)]
+pub struct Maquina {
+    pub name: String,
+    pub dir: std::path::PathBuf,
+    /// The settings in vm.toml; None until read.
+    pub saved: Option<vm::Config>,
+    pub edit: Option<vm::Config>,
+    pub load_error: Option<String>,
+    /// The Mac the VM presents, or why it could not be read.
+    pub identity: Option<Result<smbios::Identity, String>>,
+    pub more: bool,
+    pub saving: bool,
+    pub renewing: bool,
+    pub confirm_renew: bool,
+    pub confirm_delete: bool,
+    pub deleting: bool,
+}
+
 pub struct App {
     pub locale: Locale,
     pub settings: Settings,
@@ -121,6 +144,7 @@ pub struct App {
     pub diag_show_cmd: bool,
     pub diag_fixing: bool,
     pub exec: Exec,
+    pub maquina: Maquina,
     pub notice: Option<(Instant, String)>,
 }
 
@@ -161,6 +185,39 @@ pub enum Message {
     VmStop(String, bool),
     VmActionDone(Result<(), String>),
     ExecSample,
+    // Máquina
+    MaqOpen(String),
+    MaqLoaded(
+        String,
+        Result<vm::Config, String>,
+        Result<smbios::Identity, String>,
+    ),
+    MaqEdit(MaqField),
+    MaqMore,
+    MaqReset,
+    MaqSave,
+    MaqSaved(Result<(), String>),
+    MaqRenewAsk(bool),
+    MaqRenew,
+    MaqRenewed(Result<smbios::Identity, String>),
+    MaqDeleteAsk(bool),
+    MaqDelete,
+    MaqDeleted(Result<(), String>),
+}
+
+/// One change on the Máquina screen.
+#[derive(Debug, Clone)]
+pub enum MaqField {
+    Cpus(u32),
+    MemoryGib(u32),
+    Displays(u32),
+    Resolution(String),
+    Hidpi(bool),
+    Borderless(bool),
+    Audio(bool),
+    Network(bool),
+    SshPort(String),
+    StopTimeout(String),
 }
 
 impl App {
@@ -204,6 +261,7 @@ impl App {
                 last: None,
                 stopping: false,
             },
+            maquina: Maquina::default(),
             notice: None,
         };
         (app, Task::batch([load(), load_passthrough()]))
@@ -268,6 +326,12 @@ impl App {
                     if self.vms.get(i).map(|v| v.state) != Some(vm::State::Running) {
                         self.go(Screen::Painel);
                     }
+                }
+                if self.screen == Screen::Maquina
+                    && !self.maquina.deleting
+                    && !self.vms.iter().any(|v| v.name == self.maquina.name)
+                {
+                    self.go(Screen::Painel);
                 }
                 Task::none()
             }
@@ -528,6 +592,187 @@ impl App {
                     |_| Message::Refresh,
                 )
             }
+            Message::MaqOpen(name) => {
+                let Some(v) = self.vms.iter().find(|v| v.name == name) else {
+                    return Task::none();
+                };
+                self.maquina = Maquina {
+                    name: v.name.clone(),
+                    dir: v.dir.clone(),
+                    ..Maquina::default()
+                };
+                self.go(Screen::Maquina);
+                load_maquina(&self.maquina)
+            }
+            Message::MaqLoaded(name, config, identity) => {
+                if name != self.maquina.name {
+                    return Task::none();
+                }
+                match config {
+                    Ok(c) => {
+                        self.maquina.saved = Some(c.clone());
+                        self.maquina.edit = Some(c);
+                        self.maquina.load_error = None;
+                    }
+                    Err(e) => self.maquina.load_error = Some(e),
+                }
+                self.maquina.identity = Some(identity);
+                Task::none()
+            }
+            Message::MaqEdit(field) => {
+                let (host_cpus, host_mem) = (self.host_cpus.max(1), self.host_mem_gib.max(2));
+                if let Some(c) = self.maquina.edit.as_mut() {
+                    let digits =
+                        |s: &str| s.chars().filter(char::is_ascii_digit).collect::<String>();
+                    match field {
+                        MaqField::Cpus(n) => c.cpus = n.clamp(1, host_cpus),
+                        MaqField::MemoryGib(n) => c.memory_mib = n.clamp(2, host_mem) as u64 * 1024,
+                        MaqField::Displays(n) => c.displays = n.clamp(1, 8),
+                        MaqField::Resolution(r) => {
+                            c.resolution = r
+                                .chars()
+                                .filter(|ch| ch.is_ascii_alphanumeric())
+                                .take(12)
+                                .collect::<String>()
+                                .to_ascii_lowercase()
+                        }
+                        MaqField::Hidpi(b) => c.hidpi = b,
+                        MaqField::Borderless(b) => c.borderless = b,
+                        MaqField::Audio(b) => c.audio = b,
+                        MaqField::Network(b) => c.network = b,
+                        MaqField::SshPort(p) => {
+                            c.ssh_port = digits(&p).parse::<u32>().unwrap_or(0).min(65535) as u16
+                        }
+                        MaqField::StopTimeout(t) => {
+                            c.stop_timeout = digits(&t).parse::<u64>().unwrap_or(0).min(3600)
+                        }
+                    }
+                }
+                Task::none()
+            }
+            Message::MaqMore => {
+                self.maquina.more = !self.maquina.more;
+                Task::none()
+            }
+            Message::MaqReset => {
+                self.maquina.edit = self.maquina.saved.clone();
+                Task::none()
+            }
+            Message::MaqSave => {
+                let m = &self.maquina;
+                let (Some(old), Some(new)) = (&m.saved, &m.edit) else {
+                    return Task::none();
+                };
+                if m.saving || !vm::valid_resolution(&new.resolution) {
+                    return Task::none();
+                }
+                let Some(mut cmd) = vm::set_command(&m.name, old, new) else {
+                    return Task::none();
+                };
+                self.maquina.saving = true;
+                Task::perform(
+                    run_blocking(move || run_command(&mut cmd)),
+                    Message::MaqSaved,
+                )
+            }
+            Message::MaqSaved(result) => {
+                self.maquina.saving = false;
+                match result {
+                    Ok(()) => {
+                        self.maquina.saved = self.maquina.edit.clone();
+                        let msg = self
+                            .locale
+                            .t_args("maq-saved", &[("vm", Locale::str(&self.maquina.name))]);
+                        self.notify(msg);
+                        load_maquina(&self.maquina)
+                    }
+                    Err(e) => {
+                        let msg = self
+                            .locale
+                            .t_args("err-generic", &[("error", Locale::str(&e))]);
+                        self.notify(msg);
+                        Task::none()
+                    }
+                }
+            }
+            Message::MaqRenewAsk(on) => {
+                self.maquina.confirm_renew = on;
+                Task::none()
+            }
+            Message::MaqRenew => {
+                if self.maquina.renewing || self.maquina_running() {
+                    return Task::none();
+                }
+                self.maquina.renewing = true;
+                self.maquina.confirm_renew = false;
+                let (name, dir) = (self.maquina.name.clone(), self.maquina.dir.clone());
+                Task::perform(
+                    run_blocking(move || {
+                        smbios::renew_vm(&name, &dir, None)
+                            .map(|r| r.new)
+                            .map_err(|e| format!("{e:#}"))
+                    }),
+                    Message::MaqRenewed,
+                )
+            }
+            Message::MaqRenewed(result) => {
+                self.maquina.renewing = false;
+                match result {
+                    Ok(id) => {
+                        self.maquina.identity = Some(Ok(id));
+                        let msg = self.locale.t_args(
+                            "smbios-new-done",
+                            &[("vm", Locale::str(&self.maquina.name))],
+                        );
+                        self.notify(msg);
+                        // reims-ctl set --mac changed vm.toml too.
+                        load_maquina(&self.maquina)
+                    }
+                    Err(e) => {
+                        let msg = self
+                            .locale
+                            .t_args("err-generic", &[("error", Locale::str(&e))]);
+                        self.notify(msg);
+                        Task::none()
+                    }
+                }
+            }
+            Message::MaqDeleteAsk(on) => {
+                self.maquina.confirm_delete = on;
+                Task::none()
+            }
+            Message::MaqDelete => {
+                if self.maquina.deleting || self.maquina_running() {
+                    return Task::none();
+                }
+                self.maquina.deleting = true;
+                let mut cmd = vm::delete_command(&self.maquina.name);
+                Task::perform(
+                    run_blocking(move || run_command(&mut cmd)),
+                    Message::MaqDeleted,
+                )
+            }
+            Message::MaqDeleted(result) => {
+                self.maquina.deleting = false;
+                self.maquina.confirm_delete = false;
+                match result {
+                    Ok(()) => {
+                        let msg = self
+                            .locale
+                            .t_args("maq-deleted", &[("vm", Locale::str(&self.maquina.name))]);
+                        self.notify(msg);
+                        self.go(Screen::Painel);
+                        load()
+                    }
+                    Err(e) => {
+                        let msg = self
+                            .locale
+                            .t_args("err-generic", &[("error", Locale::str(&e))]);
+                        self.notify(msg);
+                        Task::none()
+                    }
+                }
+            }
             Message::ExecSample => {
                 if let Screen::Execucao(i) = self.screen {
                     if let Some(pid) = self.vms.get(i).and_then(|v| v.pid) {
@@ -558,6 +803,14 @@ impl App {
                 Task::none()
             }
         }
+    }
+
+    /// Whether the VM on the Máquina screen runs now.
+    pub fn maquina_running(&self) -> bool {
+        self.vms
+            .iter()
+            .find(|v| v.name == self.maquina.name)
+            .is_some_and(|v| v.state == vm::State::Running)
     }
 
     /// Has reims-util make the new VM's OpenCore image, with a new identity, in the background.
@@ -618,6 +871,7 @@ impl App {
             Screen::Comportamento => screens::comportamento::view(self),
             Screen::Ajustes => screens::ajustes::view(self),
             Screen::Execucao(i) => screens::execucao::view(self, i),
+            Screen::Maquina => screens::maquina::view(self),
         };
         let main = container(body)
             .width(Length::Fill)
@@ -667,6 +921,19 @@ fn load_passthrough() -> Task<Message> {
             Arc::new((pt::host_state(sys, &devices), pt::gpus(&devices)))
         }),
         Message::PassthroughLoaded,
+    )
+}
+
+/// Reads the VM's vm.toml and the Mac its OpenCore image presents, in the background.
+fn load_maquina(m: &Maquina) -> Task<Message> {
+    let (name, dir) = (m.name.clone(), m.dir.clone());
+    Task::perform(
+        run_blocking(move || {
+            let config = vm::read_config(&dir).map_err(|e| format!("{e:#}"));
+            let identity = smbios::read_vm(&dir).map_err(|e| format!("{e:#}"));
+            (name, config, identity)
+        }),
+        |(name, config, identity)| Message::MaqLoaded(name, config, identity),
     )
 }
 

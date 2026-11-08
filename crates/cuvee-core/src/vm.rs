@@ -81,6 +81,150 @@ pub fn command(action: Action, name: &str) -> Command {
     c
 }
 
+/// The settings of a VM that Cuvée edits, read from its `vm.toml` (reims-ctl's own file).
+/// They are changed through `reims-ctl set` ([`set_command`]), never by writing the file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Config {
+    pub cpus: u32,
+    pub memory_mib: u64,
+    /// Display ports, each with a window of its own (1 to 8).
+    pub displays: u32,
+    /// `WIDTHxHEIGHT`, or `host` for the host screen's modes.
+    pub resolution: String,
+    pub hidpi: bool,
+    pub borderless: bool,
+    pub audio: bool,
+    pub network: bool,
+    /// Host port on 127.0.0.1 forwarded to the guest's SSH; 0 for none.
+    pub ssh_port: u16,
+    /// Seconds `stop` waits for the guest before it powers the VM off; 0 for no limit.
+    pub stop_timeout: u64,
+    /// "reims-vgpu" or "vmware-svga" (a passed GPU or no acceleration).
+    pub graphics: String,
+}
+
+impl Config {
+    pub fn memory_gib(&self) -> u32 {
+        self.memory_mib.div_ceil(1024) as u32
+    }
+}
+
+/// Reads `<dir>/vm.toml`.
+pub fn read_config(dir: &std::path::Path) -> Result<Config> {
+    let file = dir.join("vm.toml");
+    let text =
+        std::fs::read_to_string(&file).with_context(|| format!("read {}", file.display()))?;
+    parse_config(&text)
+}
+
+/// Parses a `vm.toml`, with reims-ctl's defaults for what it leaves out.
+pub fn parse_config(text: &str) -> Result<Config> {
+    let v: toml::Table = toml::from_str(text).context("parse vm.toml")?;
+    let table = |k: &str| v.get(k).and_then(|t| t.as_table());
+    let int =
+        |t: Option<&toml::Table>, k: &str| t.and_then(|t| t.get(k)).and_then(|x| x.as_integer());
+    let flag = |t: Option<&toml::Table>, k: &str, d: bool| {
+        t.and_then(|t| t.get(k))
+            .and_then(|x| x.as_bool())
+            .unwrap_or(d)
+    };
+    let display = table("display");
+    let audio = table("audio");
+    let network = table("network");
+    Ok(Config {
+        cpus: int(Some(&v), "cpus").context("vm.toml has no cpus")? as u32,
+        memory_mib: int(Some(&v), "memory_mib").context("vm.toml has no memory_mib")? as u64,
+        displays: int(display, "count").unwrap_or(1) as u32,
+        resolution: display
+            .and_then(|t| t.get("resolution"))
+            .and_then(|x| x.as_str())
+            .unwrap_or("1920x1080")
+            .to_string(),
+        hidpi: flag(display, "hidpi", false),
+        borderless: flag(display, "borderless", false),
+        audio: flag(audio, "enabled", true),
+        network: flag(network, "enabled", true),
+        ssh_port: int(network, "ssh_port").unwrap_or(0) as u16,
+        stop_timeout: int(Some(&v), "stop_timeout_secs").unwrap_or(90) as u64,
+        graphics: v
+            .get("graphics")
+            .and_then(|x| x.as_str())
+            .unwrap_or("reims-vgpu")
+            .to_string(),
+    })
+}
+
+/// Whether reims-ctl takes `r` as a resolution: `host`, or `WIDTHxHEIGHT`.
+pub fn valid_resolution(r: &str) -> bool {
+    r == "host"
+        || r.split_once('x').is_some_and(|(w, h)| {
+            w.parse::<u32>().is_ok_and(|w| w >= 640) && h.parse::<u32>().is_ok_and(|h| h >= 480)
+        })
+}
+
+/// `reims-ctl set NAME …` with only what differs between `old` and `new`; None when nothing does.
+pub fn set_command(name: &str, old: &Config, new: &Config) -> Option<Command> {
+    let mut args: Vec<String> = Vec::new();
+    let mut opt = |flag: &str, changed: bool, value: String| {
+        if changed {
+            args.push(format!("--{flag}"));
+            args.push(value);
+        }
+    };
+    opt("cpus", old.cpus != new.cpus, new.cpus.to_string());
+    opt(
+        "memory",
+        old.memory_mib != new.memory_mib,
+        format!("{}M", new.memory_mib),
+    );
+    opt(
+        "displays",
+        old.displays != new.displays,
+        new.displays.to_string(),
+    );
+    opt(
+        "resolution",
+        old.resolution != new.resolution,
+        new.resolution.clone(),
+    );
+    opt("hidpi", old.hidpi != new.hidpi, new.hidpi.to_string());
+    opt(
+        "borderless",
+        old.borderless != new.borderless,
+        new.borderless.to_string(),
+    );
+    opt("audio", old.audio != new.audio, new.audio.to_string());
+    opt(
+        "network",
+        old.network != new.network,
+        new.network.to_string(),
+    );
+    opt(
+        "ssh-port",
+        old.ssh_port != new.ssh_port,
+        new.ssh_port.to_string(),
+    );
+    opt(
+        "stop-timeout",
+        old.stop_timeout != new.stop_timeout,
+        new.stop_timeout.to_string(),
+    );
+    if args.is_empty() {
+        return None;
+    }
+    let mut c = crate::paths::reims_ctl_command();
+    c.args(["set", name]).args(args);
+    Some(c)
+}
+
+/// `reims-ctl delete NAME --yes`: the VM and its directory with its disks. reims-ctl refuses a
+/// running VM.
+pub fn delete_command(name: &str) -> Command {
+    let mut c = crate::paths::reims_ctl_command();
+    c.args(["delete", name, "--yes"]);
+    c
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Start,
@@ -101,6 +245,88 @@ mod tests {
         assert_eq!(vms[0].state, State::Running);
         assert_eq!(vms[0].pid, Some(4242));
         assert_eq!(vms[1].state, State::Stopped);
+    }
+
+    const VM_TOML: &str = r#"name = "mac"
+profile = "q35"
+cpus = 8
+memory_mib = 16384
+disk = "disk.qcow2"
+
+[display]
+count = 1
+resolution = "2560x1440"
+hidpi = true
+borderless = false
+
+[network]
+enabled = true
+mac = "52:54:00:12:34:56"
+ssh_port = 2222
+
+[q35]
+opencore = "opencore.qcow2"
+"#;
+
+    #[test]
+    fn reads_vm_toml() {
+        let c = parse_config(VM_TOML).unwrap();
+        assert_eq!(c.cpus, 8);
+        assert_eq!(c.memory_gib(), 16);
+        assert_eq!(c.resolution, "2560x1440");
+        assert!(c.hidpi && c.audio && c.network);
+        assert_eq!(c.ssh_port, 2222);
+        assert_eq!(c.stop_timeout, 90);
+        assert_eq!(c.graphics, "reims-vgpu");
+    }
+
+    #[test]
+    fn set_passes_only_what_changed() {
+        let old = parse_config(VM_TOML).unwrap();
+        assert!(set_command("mac", &old, &old).is_none());
+        let mut new = old.clone();
+        new.cpus = 4;
+        new.memory_mib = 8 * 1024;
+        new.audio = false;
+        new.ssh_port = 0;
+        let c = set_command("mac", &old, &new).unwrap();
+        let args: Vec<_> = c
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            args,
+            [
+                "set",
+                "mac",
+                "--cpus",
+                "4",
+                "--memory",
+                "8192M",
+                "--audio",
+                "false",
+                "--ssh-port",
+                "0"
+            ]
+        );
+    }
+
+    #[test]
+    fn delete_asks_nothing() {
+        let c = delete_command("mac");
+        let args: Vec<_> = c
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(args, ["delete", "mac", "--yes"]);
+    }
+
+    #[test]
+    fn resolutions() {
+        assert!(valid_resolution("host"));
+        assert!(valid_resolution("1920x1080"));
+        assert!(!valid_resolution("1920"));
+        assert!(!valid_resolution("big"));
     }
 }
 
