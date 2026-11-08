@@ -1,0 +1,12 @@
+post_install() {
+  modprobe udmabuf 2>/dev/null || true
+  udevadm control --reload 2>/dev/null || true
+  udevadm trigger --subsystem-match=misc --action=change 2>/dev/null || true
+  echo ">> Cuvée instalado. Agora rode, como seu usuário (sem sudo):"
+  echo ">>   cuvee setup-host   # adiciona você ao grupo kvm"
+  echo ">>   cuvee doctor       # confere se está tudo pronto"
+}
+
+post_upgrade() {
+  udevadm control --reload 2>/dev/null || true
+}

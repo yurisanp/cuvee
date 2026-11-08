@@ -1,0 +1,101 @@
+# Maintainer: Yuri <yurisanp at github>
+#
+# reims-vgpu (virtual GPU for macOS VMs), its QEMU build, reims-ctl and reims-util,
+# packaged for Arch Linux by the Cuvée project. QEMU goes to /usr/lib/cuvee/qemu,
+# apart from Arch's own qemu, so both can be installed.
+
+pkgname=reims-vgpu-git
+pkgver=r0.0000000
+pkgrel=1
+pkgdesc="Virtual GPU for macOS VMs on QEMU/KVM, with reims-ctl and reims-util"
+arch=(x86_64)
+url="https://github.com/steelbrain/reims-vgpu"
+license=('GPL-2.0-or-later OR LGPL-3.0-or-later' 'GPL-2.0-only')
+depends=(
+  glib2 pixman libslirp zlib dtc pipewire libpulse alsa-lib libusb vulkan-icd-loader
+  libx11 libxext libxrandr libxcursor libxi libxfixes libxss libxtst libxkbcommon
+  wayland libdecor mesa libdrm dbus systemd-libs gtk3
+)
+makedepends=(git rustup python ninja pkgconf flex bison bzip2 cmake clang lld binutils)
+optdepends=(
+  'vulkan-radeon: Vulkan driver for AMD GPUs'
+  'vulkan-intel: Vulkan driver for Intel GPUs'
+  'nvidia-utils: Vulkan driver for NVIDIA GPUs'
+  'vulkan-tools: vulkaninfo, used by cuvee doctor'
+)
+provides=(reims-vgpu reims-ctl reims-util)
+conflicts=(reims-vgpu reims-ctl reims-util)
+# LTO from makepkg.conf breaks the static library QEMU links; debug splits are huge.
+options=(!lto !debug)
+source=(
+  "reims-vgpu::git+https://github.com/steelbrain/reims-vgpu.git"
+  "qemu-reims-vgpu::git+https://github.com/steelbrain/qemu-reims-vgpu.git"
+  "reims-util::git+https://github.com/steelbrain/reims-util.git"
+)
+sha256sums=(SKIP SKIP SKIP)
+
+_qemu_prefix=/usr/lib/cuvee/qemu
+
+pkgver() {
+  cd reims-vgpu
+  printf 'r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+prepare() {
+  cd reims-vgpu
+  git submodule init vendor/qemu
+  git config submodule.vendor/qemu.url "$srcdir/qemu-reims-vgpu"
+  git -c protocol.file.allow=always submodule update vendor/qemu
+
+  # reims-ctl expects reims-util at the commit it pins.
+  local rev
+  rev="$(sed -n 's/^pub const REV: &str = "\([0-9a-f]*\)";/\1/p' crates/reims-ctl/src/reims_util.rs)"
+  [[ -n $rev ]] || { echo "could not read reims-util's pinned commit" >&2; return 1; }
+  git -C "$srcdir/reims-util" checkout -q "$rev"
+
+  # The toolchain rust-toolchain.toml pins.
+  rustup toolchain install
+  cargo fetch --locked --target x86_64-unknown-linux-gnu
+  cd "$srcdir/reims-util"
+  cargo +"$(cd "$srcdir/reims-vgpu" && rustup show active-toolchain | cut -d' ' -f1)" \
+    fetch --locked --target x86_64-unknown-linux-gnu
+}
+
+build() {
+  export CARGO_TARGET_DIR="$srcdir/target"
+  local toolchain
+  toolchain="$(cd "$srcdir/reims-vgpu" && rustup show active-toolchain | cut -d' ' -f1)"
+
+  cd "$srcdir/reims-vgpu"
+  cargo xtask dist --platform vulkan
+  local pc="$CARGO_TARGET_DIR/dist-vulkan/lib/pkgconfig"
+  [[ -f $pc/reims-vgpu.pc ]] || { echo "cargo xtask dist wrote no reims-vgpu.pc" >&2; return 1; }
+
+  mkdir -p "$srcdir/qemu-build"
+  cd "$srcdir/qemu-build"
+  PKG_CONFIG_PATH="$pc" "$srcdir/reims-vgpu/vendor/qemu/configure" \
+    --prefix="$_qemu_prefix" \
+    --target-list=x86_64-softmmu --enable-kvm --disable-sdl --enable-gtk --enable-slirp \
+    --enable-libusb --enable-pvg --disable-docs --disable-tests --disable-werror
+  ninja
+
+  cd "$srcdir/reims-vgpu"
+  cargo build --release --locked --package reims-ctl
+
+  cd "$srcdir/reims-util"
+  cargo +"$toolchain" build --release --locked
+}
+
+package() {
+  DESTDIR="$pkgdir" ninja -C "$srcdir/qemu-build" install
+  find "$pkgdir$_qemu_prefix" -name ReimsVgpu.rom -type f | grep -q . ||
+    { echo "QEMU's install has no ReimsVgpu.rom" >&2; return 1; }
+
+  install -Dm755 "$srcdir/target/release/reims-ctl" "$pkgdir/usr/bin/reims-ctl"
+  install -Dm755 "$srcdir/target/release/reims-util" "$pkgdir/usr/bin/reims-util"
+
+  install -Dm644 "$srcdir/reims-vgpu/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  cp -r "$srcdir/reims-vgpu/LICENSES" "$pkgdir/usr/share/licenses/$pkgname/"
+  install -Dm644 "$srcdir/reims-vgpu/vendor/qemu/COPYING" \
+    "$pkgdir/usr/share/licenses/$pkgname/qemu-COPYING"
+}

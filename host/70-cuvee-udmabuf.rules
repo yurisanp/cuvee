@@ -1,0 +1,3 @@
+# Cuvée: deixa o grupo kvm abrir /dev/udmabuf.
+# O reims-vgpu passa a memória do macOS para a GPU por esse dispositivo.
+KERNEL=="udmabuf", GROUP="kvm", MODE="0660"
