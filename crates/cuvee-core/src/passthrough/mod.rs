@@ -685,7 +685,7 @@ fn joined(args: &[String]) -> String {
 pub fn attach_command(name: &str, gpu: &Gpu, existing: &[String]) -> std::process::Command {
     let mut args = without_ours(existing);
     args.extend(qemu_args(gpu));
-    let mut c = std::process::Command::new("reims-ctl");
+    let mut c = crate::paths::reims_ctl_command();
     c.args(["set", name, "--graphics", "vmware-svga", "--extra-args"])
         .arg(joined(&args));
     c
@@ -694,7 +694,7 @@ pub fn attach_command(name: &str, gpu: &Gpu, existing: &[String]) -> std::proces
 /// Takes the card back out of the VM, keeping any other extra arguments.
 pub fn detach_command(name: &str, existing: &[String]) -> std::process::Command {
     let args = without_ours(existing);
-    let mut c = std::process::Command::new("reims-ctl");
+    let mut c = crate::paths::reims_ctl_command();
     c.args(["set", name, "--graphics", "reims-vgpu", "--extra-args"])
         .arg(joined(&args));
     c

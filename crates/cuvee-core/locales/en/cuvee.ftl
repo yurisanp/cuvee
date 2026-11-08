@@ -109,7 +109,7 @@ check-iommu = IOMMU for passthrough
 advice-cpu-virt = Your CPU does not expose VT-x or AMD-V. Enable virtualization in the firmware (BIOS/UEFI).
 advice-kvm-missing = /dev/kvm does not exist. The kvm_intel or kvm_amd module is not loaded.
 advice-kvm-access = You cannot open /dev/kvm. Join the kvm group and log in again.
-advice-reims-tools = reims-ctl, reims-util or Reims vGPU's QEMU is not installed. Install the reims-vgpu package.
+advice-reims-tools = reims-ctl, reims-util or Reims vGPU's QEMU is not installed. Run cuvee install (or install your distribution's package).
 advice-vulkan-broken = vulkaninfo failed. Install your GPU's Vulkan driver: vulkan-radeon (AMD), vulkan-intel (Intel) or nvidia-utils (NVIDIA).
 advice-vulkan-untested = vulkaninfo is not installed, so Vulkan was not tested. Install the vulkan-tools package.
 advice-udmabuf-missing = The udmabuf module is not loaded. Without it, Reims vGPU cannot bring the VM's memory to the GPU.
@@ -188,11 +188,50 @@ exec-summary = macOS { $macos } · Reims vGPU · { $cpus } cores · { $gib } GB
 exec-back = Back to dashboard
 
 ## Errors and notices
-err-reims-ctl-missing = reims-ctl is not installed. Install the reims-vgpu package and open Cuvée again.
+err-reims-ctl-missing = reims-ctl is not installed. Run cuvee install and open Cuvée again.
 err-generic = Something went wrong: { $error }
 exec-no-reading = no reading
 exec-force-off = Force power off
 exec-stopping = Shutting down…
+
+## Command line (cuvee)
+cli-about = Cuvée { $version }: macOS VMs on Linux, on top of reims-ctl.
+cli-doctor-title = Host check
+cli-doctor-summary-ok = All good ({ $warnings } warning(s)).
+cli-doctor-summary-bad = { $problems } problem(s) and { $warnings } warning(s).
+cli-doctor-fix = fix with: { $command }
+cli-doctor-reims = reims-ctl's own check
+cli-gpus = GPUs: { $list }
+cli-distro = Distribution: { $name }
+cli-distro-unknown = I don't know how to install packages on { $name }. Install the equivalents of these Ubuntu packages yourself, then run cuvee install --skip-deps: { $list }
+cli-packaged = Cuvée on this system came from a package ({ $kind }). Update and install it with your distribution's package manager.
+cli-deps-ok = Dependencies already installed.
+cli-deps-missing = Missing packages: { $list }
+cli-deps-running = Running: { $command }
+cli-deps-failed = Installing packages failed ({ $command })
+cli-nvidia-driver = NVIDIA GPU without a Vulkan driver: install your distribution's proprietary or nvidia-open driver (nvidia-utils on Arch).
+cli-fetching = Downloading { $name }…
+cli-runtime-ready = Runtime { $tag } installed in { $path }
+cli-runtime-current = Runtime { $tag } is already installed.
+cli-runtime-broken = The downloaded QEMU does not run on this distribution: { $error }
+cli-installed-bin = { $name } installed in { $path }
+cli-path-missing = { $dir } is not in your PATH. Open a new terminal, or add this to ~/.profile: export PATH="$HOME/.local/bin:$PATH"
+cli-install-done = Done. Run cuvee doctor whenever you want to check the host.
+cli-update-current = You already have the newest version ({ $tag }).
+cli-update-to = Updating from { $from } to { $to }.
+cli-uninstall-done = Cuvée removed. Your VMs are still in { $path }.
+cli-setup-title = Preparing the host
+cli-setup-no-root = Run this as your normal user, without sudo: cuvee asks for sudo when it needs it.
+cli-setup-udmabuf = udmabuf module loaded.
+cli-setup-udmabuf-boot = udmabuf will load at every boot ({ $path }).
+cli-setup-udev = udev rule created for /dev/udmabuf ({ $path }).
+cli-setup-sysctl = vm.max_map_count = { $value } (NVIDIA; { $path })
+cli-setup-group = You were added to the kvm group.
+cli-setup-relogin = Log out and back in (or reboot) for the kvm group to apply.
+cli-setup-nothing = Nothing to change: the host was already prepared.
+cli-setup-failed = Could not { $what }: { $error }
+cli-sudo = Asking sudo for: { $command }
+cli-reims-missing = reims-ctl is not installed: run cuvee install.
 
 ## GPU passthrough (VFIO)
 beh-nvidia-kepler-oclp = Kepler only, with OCLP's patches

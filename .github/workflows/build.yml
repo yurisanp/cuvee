@@ -1,0 +1,114 @@
+# Builds everything a release ships and tests the installer on several
+# distributions. Called by release.yml (on a tag) and installer.yml (on pull
+# requests that touch the installer, weekly against reims-vgpu's master, and by
+# hand). Uploads the files as the artifact "dist", with SHA256SUMS.
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      reims_vgpu_rev:
+        description: reims-vgpu commit or branch (empty for the one packaging/runtime/UPSTREAM pins)
+        type: string
+        default: ""
+
+jobs:
+  cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: rustup update stable && rustup default stable && rustup target add x86_64-unknown-linux-musl
+      - name: Build cuvee (static, musl)
+        run: cargo build --release --locked --target x86_64-unknown-linux-musl -p cuvee-cli
+      - name: Check it is static
+        run: |
+          bin=target/x86_64-unknown-linux-musl/release/cuvee
+          file "$bin" | grep -q 'static'
+          "$bin" --version
+          mkdir -p out && cp "$bin" out/cuvee-x86_64-linux-musl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli
+          path: out/
+
+  app:
+    # glibc 2.35: the oldest the app runs on is Ubuntu 22.04's.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: rustup update stable && rustup default stable
+      - name: Build cuvee-gui
+        run: cargo build --release --locked -p cuvee-gui
+      - run: mkdir -p out && cp target/release/cuvee-gui out/cuvee-gui-x86_64-linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: out/
+
+  runtime:
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    timeout-minutes: 180
+    steps:
+      - name: git for checkout
+        run: apt-get update -qq && apt-get install -y -qq git ca-certificates curl >/dev/null
+      - uses: actions/checkout@v4
+      - name: Build QEMU, reims-ctl and reims-util
+        env:
+          REIMS_VGPU_REV: ${{ inputs.reims_vgpu_rev }}
+        run: packaging/runtime/build.sh out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime
+          path: out/
+
+  dist:
+    needs: [cli, app, runtime]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: SHA256SUMS
+        run: |
+          cd dist
+          chmod +x cuvee-x86_64-linux-musl cuvee-gui-x86_64-linux
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  installer:
+    needs: dist
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - ubuntu:22.04
+          - ubuntu:24.04
+          - debian:12
+          - debian:13
+          - fedora:latest
+          - archlinux:latest
+          - opensuse/tumbleweed:latest
+          - opensuse/leap:15.6
+    container: ${{ matrix.image }}
+    steps:
+      - name: tar for the actions
+        # actions/checkout and download-artifact need tar and gzip, which the
+        # smallest images leave out; a user's system has them.
+        run: |
+          if command -v zypper >/dev/null; then zypper -n -q install tar gzip; fi
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Install from scratch and check
+        run: sh install/test-in-container.sh "$PWD/dist"

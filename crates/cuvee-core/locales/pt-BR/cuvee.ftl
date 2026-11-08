@@ -109,7 +109,7 @@ check-iommu = IOMMU para passthrough
 advice-cpu-virt = Sua CPU não expõe VT-x ou AMD-V. Ative a virtualização no firmware (BIOS/UEFI).
 advice-kvm-missing = O /dev/kvm não existe. O módulo kvm_intel ou kvm_amd não está carregado.
 advice-kvm-access = Você não tem acesso ao /dev/kvm. Entre no grupo kvm e abra a sessão de novo.
-advice-reims-tools = O reims-ctl, o reims-util ou o QEMU da Reims vGPU não estão instalados. Instale o pacote reims-vgpu.
+advice-reims-tools = O reims-ctl, o reims-util ou o QEMU da Reims vGPU não estão instalados. Rode cuvee install (ou instale o pacote da sua distro).
 advice-vulkan-broken = O vulkaninfo falhou. Instale o driver Vulkan da sua GPU: vulkan-radeon (AMD), vulkan-intel (Intel) ou nvidia-utils (NVIDIA).
 advice-vulkan-untested = O vulkaninfo não está instalado, então o Vulkan não foi testado. Instale o pacote vulkan-tools.
 advice-udmabuf-missing = O módulo udmabuf não está carregado. Sem ele, a Reims vGPU não leva a memória da VM até a GPU.
@@ -188,11 +188,50 @@ exec-summary = macOS { $macos } · Reims vGPU · { $cpus } núcleos · { $gib } 
 exec-back = Voltar ao painel
 
 ## Erros e avisos
-err-reims-ctl-missing = O reims-ctl não está instalado. Instale o pacote reims-vgpu e abra o Cuvée de novo.
+err-reims-ctl-missing = O reims-ctl não está instalado. Rode cuvee install e abra o Cuvée de novo.
 err-generic = Algo deu errado: { $error }
 exec-no-reading = sem leitura
 exec-force-off = Forçar desligamento
 exec-stopping = Desligando…
+
+## Linha de comando (cuvee)
+cli-about = Cuvée { $version }: VMs de macOS no Linux, sobre o reims-ctl.
+cli-doctor-title = Diagnóstico do host
+cli-doctor-summary-ok = Tudo certo ({ $warnings } aviso(s)).
+cli-doctor-summary-bad = { $problems } problema(s) e { $warnings } aviso(s).
+cli-doctor-fix = corrige com: { $command }
+cli-doctor-reims = Diagnóstico do reims-ctl
+cli-gpus = GPUs: { $list }
+cli-distro = Distribuição: { $name }
+cli-distro-unknown = Não sei instalar pacotes em { $name }. Instale à mão o equivalente destes pacotes do Ubuntu e rode cuvee install --skip-deps: { $list }
+cli-packaged = O Cuvée deste sistema veio de um pacote ({ $kind }). Atualize e instale pelo gerenciador de pacotes da sua distro.
+cli-deps-ok = Dependências já instaladas.
+cli-deps-missing = Faltam pacotes: { $list }
+cli-deps-running = Rodando: { $command }
+cli-deps-failed = A instalação de pacotes falhou ({ $command })
+cli-nvidia-driver = GPU NVIDIA sem driver Vulkan: instale o driver proprietário ou o nvidia-open da sua distro (no Arch, nvidia-utils).
+cli-fetching = Baixando { $name }…
+cli-runtime-ready = Runtime { $tag } instalado em { $path }
+cli-runtime-current = Runtime { $tag } já instalado.
+cli-runtime-broken = O QEMU baixado não roda nesta distro: { $error }
+cli-installed-bin = { $name } instalado em { $path }
+cli-path-missing = { $dir } não está no seu PATH. Abra um terminal novo ou adicione ao ~/.profile: export PATH="$HOME/.local/bin:$PATH"
+cli-install-done = Pronto. Rode cuvee doctor quando quiser conferir o host.
+cli-update-current = Você já está na versão mais nova ({ $tag }).
+cli-update-to = Atualizando de { $from } para { $to }.
+cli-uninstall-done = Cuvée removido. Suas VMs continuam em { $path }.
+cli-setup-title = Preparando o host
+cli-setup-no-root = Rode como seu usuário normal, sem sudo: o cuvee pede sudo quando precisa.
+cli-setup-udmabuf = Módulo udmabuf carregado.
+cli-setup-udmabuf-boot = O udmabuf vai carregar em todo boot ({ $path }).
+cli-setup-udev = Regra udev criada para o /dev/udmabuf ({ $path }).
+cli-setup-sysctl = vm.max_map_count = { $value } (NVIDIA; { $path })
+cli-setup-group = Você foi adicionado ao grupo kvm.
+cli-setup-relogin = Saia e entre de novo na sessão (ou reinicie) para valer o grupo kvm.
+cli-setup-nothing = Nada a mudar: o host já estava preparado.
+cli-setup-failed = Não deu para { $what }: { $error }
+cli-sudo = Pedindo sudo para: { $command }
+cli-reims-missing = O reims-ctl não está instalado: rode cuvee install.
 
 ## GPU passthrough (VFIO)
 beh-nvidia-kepler-oclp = Só Kepler, com os patches do OCLP

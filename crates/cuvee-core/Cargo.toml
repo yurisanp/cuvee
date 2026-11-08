@@ -15,3 +15,6 @@ plist = "1"
 fluent-bundle.workspace = true
 fluent-syntax = "0.12"
 unic-langid.workspace = true
+sha2 = "0.10"
+flate2 = "1"
+tar = { version = "0.4", default-features = false }

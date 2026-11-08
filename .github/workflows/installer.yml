@@ -1,0 +1,31 @@
+# The installer, end to end: builds the runtime, cuvee and the app, and installs
+# them in fresh Ubuntu, Debian, Fedora, Arch and openSUSE containers. Slow (the
+# runtime takes 30 to 60 minutes), so it runs only where it matters: pull
+# requests that touch the installer or the runtime, weekly against reims-vgpu's
+# master (upstream is in beta and changes fast), and by hand.
+name: Installer
+
+on:
+  pull_request:
+    paths:
+      - install/**
+      - packaging/runtime/**
+      - crates/cuvee-cli/**
+      - crates/cuvee-core/src/distro.rs
+      - crates/cuvee-core/src/paths.rs
+      - crates/cuvee-core/src/release.rs
+      - .github/workflows/build.yml
+      - .github/workflows/installer.yml
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      reims_vgpu_rev:
+        description: reims-vgpu commit or branch (empty for the pinned one)
+        default: ""
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      reims_vgpu_rev: ${{ github.event_name == 'schedule' && 'master' || inputs.reims_vgpu_rev || '' }}

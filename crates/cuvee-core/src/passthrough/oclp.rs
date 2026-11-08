@@ -116,14 +116,12 @@ pub fn esp_offset(head: &[u8]) -> Result<u64> {
     bail!("the GPT has no partition")
 }
 
-/// Where `qemu-img` is: the packaged QEMU's, else the one on PATH.
+/// Where `qemu-img` is: beside this install's QEMU (crate::paths), else the one on PATH.
 pub fn qemu_img() -> PathBuf {
-    let ours = Path::new(crate::host::QEMU_BIN).with_file_name("qemu-img");
-    if ours.is_file() {
-        ours
-    } else {
-        PathBuf::from("qemu-img")
-    }
+    crate::paths::qemu_binary()
+        .map(|q| q.with_file_name("qemu-img"))
+        .filter(|p| p.is_file())
+        .unwrap_or_else(|| PathBuf::from("qemu-img"))
 }
 
 fn run(c: &mut Command) -> Result<()> {

@@ -1,0 +1,16 @@
+[package]
+name = "cuvee-cli"
+description = "Cuvée: macOS virtual machines on Linux, the cuvee command"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "cuvee"
+path = "src/main.rs"
+
+[dependencies]
+cuvee-core = { path = "../cuvee-core" }
+anyhow.workspace = true
+clap = { version = "4", features = ["derive"] }
