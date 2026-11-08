@@ -43,7 +43,7 @@ jobs:
           apt-get update -qq
           apt-get install -y -qq --no-install-recommends apt-file binutils ca-certificates curl gettext-base git >/dev/null
           apt-file update >/dev/null
-          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" |
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" |
             tar -xz -C /usr/local/bin nfpm
       - uses: actions/checkout@v4
       - name: Binaries from this run
