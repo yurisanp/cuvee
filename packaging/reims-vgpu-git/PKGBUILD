@@ -58,6 +58,10 @@ prepare() {
   # Upstream's Cargo.lock can lag a commit behind (its install script builds
   # without --locked too), so cargo may add entries here.
   cargo fetch --target x86_64-unknown-linux-gnu
+  # reims-ctl is its own workspace (crates/reims-ctl/Cargo.toml has [workspace]),
+  # with its own Cargo.lock, so it is fetched and built from inside its directory.
+  cd "$srcdir/reims-vgpu/crates/reims-ctl"
+  cargo fetch --locked --target x86_64-unknown-linux-gnu
   cd "$srcdir/reims-util"
   cargo +"$(cd "$srcdir/reims-vgpu" && rustup show active-toolchain | cut -d' ' -f1)" \
     fetch --locked --target x86_64-unknown-linux-gnu
@@ -81,8 +85,8 @@ build() {
     --enable-libusb --enable-pvg --disable-docs --disable-tests --disable-werror
   ninja
 
-  cd "$srcdir/reims-vgpu"
-  cargo build --release --package reims-ctl
+  cd "$srcdir/reims-vgpu/crates/reims-ctl"
+  cargo build --release --locked
 
   cd "$srcdir/reims-util"
   cargo +"$toolchain" build --release --locked
