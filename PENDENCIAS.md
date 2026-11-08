@@ -14,7 +14,7 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
   ```
 - [ ] Apagar os branches já mesclados no GitHub:
   `git push origin --delete arch-packaging gui`
-- [ ] Logar o GitHub CLI na sua máquina: `gh auth login`. Assim eu consigo
+- [x] Logar o GitHub CLI na sua máquina: `gh auth login`. Assim eu consigo
   acompanhar a CI e as releases daí.
 - [ ] Permitir que eu envie tags de release pela sua máquina. No Claude Code do
   computador, adicione regras de permissão para `git tag -a v*` e
@@ -23,10 +23,10 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
 
 ## Antes da v0.2 (instalador universal)
 
-- [ ] Em Settings > Actions > General do repositório, em "Workflow
+- [x] Em Settings > Actions > General do repositório, em "Workflow
   permissions", marcar **Read and write permissions**. A CI precisa disso para
   publicar os binários do QEMU e do instalador.
-- [ ] Ativar o GitHub Pages (Settings > Pages > Source: GitHub Actions). O
+- [x] Ativar o GitHub Pages (Settings > Pages > Source: GitHub Actions). O
   instalador fica em `https://yurisanp.github.io/cuvee/install.sh`.
 - [ ] Opcional: registrar um domínio curto (por exemplo `cuvee.sh`) e apontar
   para o Pages.
