@@ -3,8 +3,8 @@ name: Native packages
 # Builds the .deb and .rpm packages (cuvee and cuvee-runtime) from the
 # release's binaries and installs them on every supported distro.
 #
-# release.yml calls it after the cli, runtime and app jobs, with their
-# artifacts in this run. Run by hand (Actions > Native packages), it takes
+# release.yml calls it after build.yml, whose "dist" artifact holds the
+# binaries. Run by hand (Actions > Native packages), it takes
 # the binaries of an existing release instead, to test the packaging
 # without rebuilding QEMU.
 
@@ -50,8 +50,9 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         uses: actions/download-artifact@v4
         with:
+          # build.yml's combined artifact: cuvee, cuvee-gui, the runtime tarball, SHA256SUMS.
+          name: dist
           path: dist/in
-          merge-multiple: true
       - name: Binaries from release ${{ inputs.from-release }}
         if: github.event_name == 'workflow_dispatch'
         env:
