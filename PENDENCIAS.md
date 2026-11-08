@@ -34,16 +34,10 @@ de cada release. O AUR fica de fora até o registro de contas reabrir.
 
 ## Antes da v0.3 (pacotes nativos e documentação)
 
-- [ ] Criar a chave de assinatura das releases com
-  [minisign](https://jedisct1.github.io/minisign/):
-  ```sh
-  minisign -G -W -p cuvee.pub -s cuvee.key
-  ```
-  O `-W` cria a chave sem senha: quem a protege é o secret do GitHub. Guarde
-  uma cópia de `cuvee.key` num gerenciador de senhas e apague o arquivo do
-  disco. Cadastre o conteúdo de `cuvee.key` como secret `MINISIGN_KEY`
-  (Settings > Secrets and variables > Actions) e faça commit de `cuvee.pub` na
-  raiz do repositório. A CI já assina tudo quando o secret existe.
+- [x] Criar a chave de assinatura das releases com minisign, cadastrar
+  `MINISIGN_KEY` e `MINISIGN_PASSWORD` nos secrets do Actions e guardar
+  `cuvee.key` fora do repositório (8 de novembro de 2026). A chave pública
+  está em `cuvee.pub`.
 - [ ] Conseguir três pessoas de fora para instalar só lendo a documentação.
 
 ## Antes da v0.4 (GPU passthrough)
