@@ -156,6 +156,7 @@ pub enum Message {
     // Ajustes
     SetLanguage(&'static str),
     SetReduceMotion(bool),
+    Advanced(screens::ajustes::Edit),
     // Execução
     VmStart(String),
     VmStop(String, bool),
@@ -367,6 +368,7 @@ impl App {
                 let pass = self.passthrough.clone();
                 let gpu = pass.as_ref().and_then(|p| n.chosen_gpu(&p.1)).cloned();
                 let identity = n.current_identity().cloned();
+                let advanced = self.settings.advanced.clone();
                 // With a GPU, the VM starts only if the host is ready for it already.
                 let start = match (&gpu, &pass) {
                     (None, _) => true,
@@ -375,25 +377,32 @@ impl App {
                 };
                 Task::perform(
                     run_blocking(move || {
+                        let set = vm::advanced_set_command(&n.name, &advanced);
+                        // `create --start` only when nothing has to change before the first boot.
+                        let start_at_once = gpu.is_none() && set.is_none();
                         let mut cmd = vm::create_command(
                             &n.name,
                             n.version.slug(),
                             n.cpus,
                             n.memory_gib,
                             n.disk_gib,
-                            gpu.is_none(),
+                            start_at_once,
                             identity.as_ref(),
+                            &advanced,
                         );
                         run_command(&mut cmd)?;
                         // reims-ctl copied the image.
                         if let Some(s) = &identity {
                             s.discard();
                         }
+                        if let Some(mut set) = set {
+                            run_command(&mut set)?;
+                        }
                         if let Some(g) = &gpu {
                             pt::finish_create(&n.name, n.version, g).map_err(|e| e.to_string())?;
-                            if start {
-                                run_command(&mut vm::command(vm::Action::Start, &n.name))?;
-                            }
+                        }
+                        if start && !start_at_once {
+                            run_command(&mut vm::command(vm::Action::Start, &n.name))?;
                         }
                         Ok(())
                     }),
@@ -484,6 +493,11 @@ impl App {
                     self.locale = Locale::new(tag);
                     self.save_settings();
                 }
+                Task::none()
+            }
+            Message::Advanced(edit) => {
+                screens::ajustes::apply(&mut self.settings.advanced, edit);
+                self.save_settings();
                 Task::none()
             }
             Message::SetReduceMotion(on) => {

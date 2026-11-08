@@ -181,7 +181,9 @@ pub fn host_memory_gib() -> u32 {
 
 /// The `reims-ctl create` command for a new x86-64 VM; shown in the review step and run as is.
 /// With `identity`, the VM gets that staged OpenCore image (a copy) and its ROM as its network
-/// card's address; without, reims-ctl makes it an image with a new identity.
+/// card's address; without, reims-ctl makes it an image with a new identity. `advanced` adds
+/// the Ajustes choices `create` takes; [`advanced_set_command`] gives the rest.
+#[allow(clippy::too_many_arguments)]
 pub fn create_command(
     name: &str,
     macos_slug: &str,
@@ -190,6 +192,7 @@ pub fn create_command(
     disk_gib: u32,
     start: bool,
     identity: Option<&crate::smbios::Staged>,
+    advanced: &crate::settings::Advanced,
 ) -> Command {
     let mut c = crate::paths::reims_ctl_command();
     c.arg("create")
@@ -201,10 +204,23 @@ pub fn create_command(
     if let Some(s) = identity {
         c.arg("--opencore").arg(&s.image).args(["--mac", &s.mac]);
     }
+    c.args(advanced.create_args(name));
     if start {
         c.arg("--start");
     }
     c
+}
+
+/// `reims-ctl set NAME …` for the Ajustes choices `create` does not take; None when there are
+/// none. Run it after `create` and before the first start.
+pub fn advanced_set_command(name: &str, advanced: &crate::settings::Advanced) -> Option<Command> {
+    let args = advanced.set_args();
+    if args.is_empty() {
+        return None;
+    }
+    let mut c = crate::paths::reims_ctl_command();
+    c.args(["set", name]).args(args);
+    Some(c)
 }
 
 /// A command as the user would type it.
@@ -217,7 +233,7 @@ pub fn display(c: &Command) -> String {
     };
     std::iter::once(program)
         .chain(c.get_args())
-        .map(|a| a.to_string_lossy().into_owned())
+        .map(|a| crate::passthrough::sh_quote(&a.to_string_lossy()))
         .collect::<Vec<_>>()
         .join(" ")
 }
