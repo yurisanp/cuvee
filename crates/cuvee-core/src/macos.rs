@@ -98,6 +98,15 @@ impl Version {
         }
     }
 
+    /// A version from what a person types: its slug (`sequoia`, `big-sur`), its number (`15`,
+    /// `10.13`) or its name (`Big Sur`), in any case.
+    pub fn parse(s: &str) -> Option<Version> {
+        let s = s.trim().to_ascii_lowercase();
+        Version::ALL
+            .into_iter()
+            .find(|v| v.slug() == s || v.number() == s || v.name().to_ascii_lowercase() == s)
+    }
+
     /// Whether reims-vgpu accelerates this guest's graphics (Metal through the host's Vulkan).
     pub fn accelerated(self) -> bool {
         matches!(self, Version::Tahoe)
@@ -205,7 +214,7 @@ impl Group {
             Group::VenturaToSequoia => [
                 Behavior::new(VideoNoGpu, Limited, "beh-video-usable"),
                 Behavior::new(AmdPassthrough, Good, "beh-amd-native-wide"),
-                Behavior::new(NvidiaPassthrough, Bad, "beh-nvidia-no-driver"),
+                Behavior::new(NvidiaPassthrough, Limited, "beh-nvidia-kepler-oclp"),
                 Behavior::new(Network, Good, "beh-network-ok"),
                 Behavior::new(AppleServices, Limited, "beh-apple-services"),
             ],
@@ -280,6 +289,16 @@ mod tests {
     fn only_tahoe_is_accelerated() {
         assert!(Version::Tahoe.accelerated());
         assert!(Version::ALL.iter().filter(|v| v.accelerated()).count() == 1);
+    }
+
+    #[test]
+    fn parses_what_people_type() {
+        assert_eq!(Version::parse("Sequoia"), Some(Version::Sequoia));
+        assert_eq!(Version::parse("15"), Some(Version::Sequoia));
+        assert_eq!(Version::parse("10.13"), Some(Version::HighSierra));
+        assert_eq!(Version::parse("big sur"), Some(Version::BigSur));
+        assert_eq!(Version::parse("big-sur"), Some(Version::BigSur));
+        assert_eq!(Version::parse("9"), None);
     }
 
     #[test]

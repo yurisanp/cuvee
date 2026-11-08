@@ -11,6 +11,7 @@ use anim::Clock;
 use cuvee_core::host::{self, Report};
 use cuvee_core::i18n::Locale;
 use cuvee_core::macos::{Group, Version};
+use cuvee_core::passthrough::{self as pt, Gpu, HostState};
 use cuvee_core::settings::Settings;
 use cuvee_core::vm::{self, Vm};
 use iced::widget::{container, row};
@@ -64,8 +65,17 @@ pub struct Nova {
     pub cpus: u32,
     pub memory_gib: u32,
     pub disk_gib: u32,
+    /// The PCI address of the GPU to hand to the VM; None for reims-vgpu's virtual one.
+    pub gpu: Option<String>,
     pub switched_at: Instant,
     pub busy: bool,
+}
+
+impl Nova {
+    /// The chosen GPU, if it is still on the host.
+    pub fn chosen_gpu<'a>(&self, gpus: &'a [Gpu]) -> Option<&'a Gpu> {
+        self.gpu.as_deref().and_then(|a| pt::find(gpus, a))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -84,6 +94,8 @@ pub struct App {
     pub entered_at: Instant,
     pub report: Option<Arc<Report>>,
     pub vms: Vec<Vm>,
+    /// The host's GPUs and what passthrough needs from the host, read once at start.
+    pub passthrough: Option<Arc<(HostState, Vec<Gpu>)>>,
     pub host_cpus: u32,
     pub host_mem_gib: u32,
     pub nova: Nova,
@@ -102,12 +114,14 @@ pub enum Message {
     Refresh,
     Loaded(Arc<Report>, Vec<Vm>),
     LoadFailed(String),
+    PassthroughLoaded(Arc<(HostState, Vec<Gpu>)>),
     // Nova máquina
     NovaPick(Version),
     NovaName(String),
     NovaCpus(u32),
     NovaMemory(u32),
     NovaDisk(u32),
+    NovaGpu(Option<String>),
     NovaNext,
     NovaBack,
     NovaCreate,
@@ -140,6 +154,7 @@ impl App {
             entered_at: now,
             report: None,
             vms: Vec::new(),
+            passthrough: None,
             host_cpus: vm::host_cpus(),
             host_mem_gib: vm::host_memory_gib(),
             nova: Nova {
@@ -149,6 +164,7 @@ impl App {
                 cpus: 8.min(vm::host_cpus().max(1)),
                 memory_gib: 16.min(vm::host_memory_gib().max(2)),
                 disk_gib: 128,
+                gpu: None,
                 switched_at: now,
                 busy: false,
             },
@@ -164,7 +180,7 @@ impl App {
             },
             notice: None,
         };
-        (app, load())
+        (app, Task::batch([load(), load_passthrough()]))
     }
 
     fn title(&self) -> String {
@@ -229,6 +245,10 @@ impl App {
                 }
                 Task::none()
             }
+            Message::PassthroughLoaded(p) => {
+                self.passthrough = Some(p);
+                Task::none()
+            }
             Message::LoadFailed(e) => {
                 self.diag_fixing = false;
                 let msg = self
@@ -245,6 +265,15 @@ impl App {
                     let s = v.suggested();
                     self.nova.cpus = s.cpus.min(self.host_cpus.max(1));
                     self.nova.memory_gib = s.memory_gib.min(self.host_mem_gib.max(2));
+                    // A GPU that suits one macOS may not suit the next.
+                    let keep = self
+                        .passthrough
+                        .as_ref()
+                        .and_then(|p| self.nova.chosen_gpu(&p.1))
+                        .is_some_and(|g| g.family.support(v).usable());
+                    if !keep {
+                        self.nova.gpu = None;
+                    }
                 }
                 Task::none()
             }
@@ -268,6 +297,10 @@ impl App {
                 self.nova.disk_gib = n.clamp(40, 2048);
                 Task::none()
             }
+            Message::NovaGpu(g) => {
+                self.nova.gpu = g;
+                Task::none()
+            }
             Message::NovaNext => {
                 if self.nova.step < 3 {
                     self.nova.step += 1;
@@ -287,16 +320,34 @@ impl App {
                     return Task::none();
                 }
                 self.nova.busy = true;
-                let mut cmd = vm::create_command(
-                    &self.nova.name,
-                    self.nova.version.slug(),
-                    self.nova.cpus,
-                    self.nova.memory_gib,
-                    self.nova.disk_gib,
-                    true,
-                );
+                let n = self.nova.clone();
+                let pass = self.passthrough.clone();
+                let gpu = pass.as_ref().and_then(|p| n.chosen_gpu(&p.1)).cloned();
+                // With a GPU, the VM starts only if the host is ready for it already.
+                let start = match (&gpu, &pass) {
+                    (None, _) => true,
+                    (Some(g), Some(p)) => pt::assess(g, n.version, n.memory_gib, &p.0).ready(),
+                    (Some(_), None) => false,
+                };
                 Task::perform(
-                    run_blocking(move || run_command(&mut cmd)),
+                    run_blocking(move || {
+                        let mut cmd = vm::create_command(
+                            &n.name,
+                            n.version.slug(),
+                            n.cpus,
+                            n.memory_gib,
+                            n.disk_gib,
+                            gpu.is_none(),
+                        );
+                        run_command(&mut cmd)?;
+                        if let Some(g) = &gpu {
+                            pt::finish_create(&n.name, n.version, g).map_err(|e| e.to_string())?;
+                            if start {
+                                run_command(&mut vm::command(vm::Action::Start, &n.name))?;
+                            }
+                        }
+                        Ok(())
+                    }),
                     Message::NovaCreated,
                 )
             }
@@ -520,6 +571,17 @@ fn push(samples: &mut Vec<f32>, v: f32) {
     if samples.len() > 21 {
         samples.remove(0);
     }
+}
+
+fn load_passthrough() -> Task<Message> {
+    Task::perform(
+        run_blocking(|| {
+            let sys = std::path::Path::new(pt::SYSFS);
+            let devices = pt::pci::scan(sys);
+            Arc::new((pt::host_state(sys, &devices), pt::gpus(&devices)))
+        }),
+        Message::PassthroughLoaded,
+    )
 }
 
 fn load() -> Task<Message> {

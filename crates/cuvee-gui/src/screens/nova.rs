@@ -5,6 +5,7 @@ use crate::widgets::{self, captioned};
 use crate::{App, Message};
 use cuvee_core::i18n::Locale;
 use cuvee_core::macos::{Installer, Version};
+use cuvee_core::passthrough as pt;
 use cuvee_core::vm;
 use iced::widget::{button, column, container, row, rule, slider, text_input, Row};
 use iced::{Element, Length};
@@ -289,12 +290,83 @@ fn step_hardware(app: &App) -> Element<'_, Message> {
                     a
                 ),
                 theme::label(advice_mem, 13.0, theme::with_alpha(theme::SOFT, a)),
+                gpu_picker(app, a),
             ]
             .spacing(22)
             .max_width(640)
         ),
     ]
     .spacing(36)
+    .into()
+}
+
+/// The physical GPU choice, for the versions reims-vgpu does not accelerate.
+fn gpu_picker(app: &App, a: f32) -> Element<'_, Message> {
+    let n = &app.nova;
+    if n.version.accelerated() {
+        return column![].into();
+    }
+    let macos = [("macos", Locale::str(n.version.number()))];
+    let mut col = column![theme::label(
+        app.t("nova-gpu"),
+        13.0,
+        theme::with_alpha(theme::MUTED, a)
+    )]
+    .spacing(10);
+    let candidates: Vec<(&pt::Gpu, pt::Assessment)> = app
+        .passthrough
+        .as_ref()
+        .map(|p| {
+            p.1.iter()
+                .map(|g| (g, pt::assess(g, n.version, n.memory_gib, &p.0)))
+                .filter(|(_, x)| x.possible())
+                .collect()
+        })
+        .unwrap_or_default();
+    if candidates.is_empty() {
+        return col
+            .push(theme::label(
+                app.locale.t_args("nova-gpu-no-candidate", &macos),
+                13.0,
+                theme::with_alpha(theme::SOFT, a),
+            ))
+            .into();
+    }
+    let choice = |label: String, detail: String, on: bool, msg: Message| {
+        let color = if on { theme::INK } else { theme::DIM };
+        button(
+            column![
+                theme::label(label, 15.0, theme::with_alpha(color, a)),
+                theme::label(detail, 12.0, theme::with_alpha(theme::SOFT, a)),
+            ]
+            .spacing(2),
+        )
+        .padding([8, 12])
+        .width(Length::Fill)
+        .style(theme::row_hover)
+        .on_press(msg)
+    };
+    col = col.push(choice(
+        app.t("nova-gpu-none"),
+        app.t("nova-video-plain"),
+        n.gpu.is_none(),
+        Message::NovaGpu(None),
+    ));
+    for (g, x) in candidates {
+        let on = n.chosen_gpu(std::slice::from_ref(g)).is_some();
+        let verdict = app.t(if x.ready() { "pt-ready" } else { "pt-possible" });
+        col = col.push(choice(
+            format!("{} · {}", app.t(g.family.label_key()), g.primary.address),
+            format!("{} · {}", app.t(x.support.label_key()), verdict),
+            on,
+            Message::NovaGpu(Some(g.primary.address.clone())),
+        ));
+    }
+    col.push(theme::label(
+        app.locale.t_args("nova-gpu-hint", &macos),
+        13.0,
+        theme::with_alpha(theme::SOFT, a),
+    ))
     .into()
 }
 
@@ -344,14 +416,22 @@ fn step_review(app: &App) -> Element<'_, Message> {
     let r1 = clock.rise(n.switched_at, 0);
     let r2 = clock.rise(n.switched_at, 1);
     let a = r2.opacity;
+    let gpu = app.passthrough.as_ref().and_then(|p| n.chosen_gpu(&p.1));
     let cmd = vm::create_command(
         &n.name,
         n.version.slug(),
         n.cpus,
         n.memory_gib,
         n.disk_gib,
-        true,
+        gpu.is_none(),
     );
+    let mut lines = vec![format!("$ {}", vm::display(&cmd))];
+    if let Some(g) = gpu {
+        for c in pt::finish_create_commands(&n.name, n.version, g) {
+            lines.push(format!("$ {c}"));
+        }
+        lines.push(format!("$ reims-ctl start {}", n.name));
+    }
     let hw = app.locale.t_args(
         "nova-hw",
         &[
@@ -394,13 +474,9 @@ fn step_review(app: &App) -> Element<'_, Message> {
                     13.0,
                     theme::with_alpha(theme::MUTED, a)
                 ),
-                container(theme::mono(
-                    format!("$ {}", vm::display(&cmd)),
-                    13.0,
-                    theme::SOFT
-                ))
-                .padding([10, 14])
-                .style(theme::code_block),
+                container(theme::mono(lines.join("\n"), 13.0, theme::SOFT))
+                    .padding([10, 14])
+                    .style(theme::code_block),
                 theme::label(
                     app.t(n.version.tip_key()),
                     15.0,
